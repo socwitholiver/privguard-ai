@@ -1,0 +1,26 @@
+# Python virtual environment
+venv/
+
+# Byte-compiled / cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Log files
+*.log
+
+# Temp files
+*.tmp
+*.temp
+
+# Model files
+*.pkl
+
+# Build files
+*.spec
+*.exe
+
+# OS-specific files
+Thumbs.db
+.DS_Store
