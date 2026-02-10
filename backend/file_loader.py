@@ -1,0 +1,73 @@
+import os
+import PyPDF2
+import docx
+from backend.logger import get_logger
+
+logger = get_logger()
+
+
+class FileLoader:
+    def __init__(self):
+        logger.info("FileLoader initialized.")
+
+    def load_file(self, filepath):
+        """
+        Detect file type and extract text.
+        Supports PDF, DOCX, and TXT.
+        """
+        if not os.path.exists(filepath):
+            logger.error(f"File not found: {filepath}")
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        extension = filepath.lower().split(".")[-1]
+
+        try:
+            if extension == "pdf":
+                logger.info(f"Extracting PDF: {filepath}")
+                return self._extract_from_pdf(filepath)
+
+            elif extension == "docx":
+                logger.info(f"Extracting DOCX: {filepath}")
+                return self._extract_from_docx(filepath)
+
+            elif extension == "txt":
+                logger.info(f"Extracting TXT: {filepath}")
+                return self._extract_from_txt(filepath)
+
+            else:
+                logger.warning(f"Unsupported file type: {extension}")
+                raise ValueError("Unsupported file type. Only PDF, DOCX, and TXT allowed.")
+
+        except Exception as e:
+            logger.error(f"Extraction failed for {filepath}: {str(e)}")
+            raise
+
+    def _extract_from_pdf(self, filepath):
+        text = ""
+        try:
+            with open(filepath, "rb") as file:
+                pdf = PyPDF2.PdfReader(file)
+                for page in pdf.pages:
+                    text += page.extract_text() or ""
+        except Exception as e:
+            raise Exception(f"PDF extraction error: {str(e)}")
+
+        return text.strip()
+
+    def _extract_from_docx(self, filepath):
+        try:
+            doc = docx.Document(filepath)
+            text = "\n".join([para.text for para in doc.paragraphs])
+        except Exception as e:
+            raise Exception(f"DOCX extraction error: {str(e)}")
+
+        return text.strip()
+
+    def _extract_from_txt(self, filepath):
+        try:
+            with open(filepath, "r", encoding="utf-8") as file:
+                text = file.read()
+        except Exception as e:
+            raise Exception(f"TXT extraction error: {str(e)}")
+
+        return text.strip()
