@@ -1,25 +1,36 @@
-import sys
 import os
+import pytest
+import sys
 
-# Add project root to Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from backend.file_loader import FileLoader
 
-if __name__ == "__main__":
-    loader = FileLoader()
+loader = FileLoader()
 
-    test_files = [
-        "data/test.pdf",
-        "data/test.docx",
-        "data/test.txt",
-    ]
 
-    for file in test_files:
-        print(f"\nTesting: {file}")
-        try:
-            content = loader.load_file(file)
-            print("Extraction successful.")
-            print("Preview:", content[:200])
-        except Exception as e:
-            print("Error:", e)
+def test_txt_extraction():
+    content = loader.load_file("data/test.txt")
+    assert isinstance(content, str)
+    assert len(content) > 0
+
+
+def test_unsupported_file(tmp_path):
+    fake_file = tmp_path / "test.xyz"
+    fake_file.write_text("Some content")
+
+    with pytest.raises(ValueError):
+        loader.load_file(str(fake_file))
+
+
+
+def test_missing_file():
+    with pytest.raises(FileNotFoundError):
+        loader.load_file("data/nonexistent.txt")
+
+
+def test_empty_file(tmp_path):
+    empty_file = tmp_path / "empty.txt"
+    empty_file.write_text("")
+    with pytest.raises(ValueError):
+        loader.load_file(str(empty_file))

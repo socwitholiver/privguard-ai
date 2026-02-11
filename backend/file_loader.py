@@ -15,28 +15,39 @@ class FileLoader:
         Detect file type and extract text.
         Supports PDF, DOCX, and TXT.
         """
+
         if not os.path.exists(filepath):
             logger.error(f"File not found: {filepath}")
             raise FileNotFoundError(f"File not found: {filepath}")
+
+        if os.path.getsize(filepath) == 0:
+            logger.warning(f"Empty file detected: {filepath}")
+            raise ValueError("File is empty.")
 
         extension = filepath.lower().split(".")[-1]
 
         try:
             if extension == "pdf":
                 logger.info(f"Extracting PDF: {filepath}")
-                return self._extract_from_pdf(filepath)
+                text = self._extract_from_pdf(filepath)
 
             elif extension == "docx":
                 logger.info(f"Extracting DOCX: {filepath}")
-                return self._extract_from_docx(filepath)
+                text = self._extract_from_docx(filepath)
 
             elif extension == "txt":
                 logger.info(f"Extracting TXT: {filepath}")
-                return self._extract_from_txt(filepath)
+                text = self._extract_from_txt(filepath)
 
             else:
                 logger.warning(f"Unsupported file type: {extension}")
                 raise ValueError("Unsupported file type. Only PDF, DOCX, and TXT allowed.")
+
+            if not text:
+                logger.warning(f"No readable text extracted from: {filepath}")
+                raise ValueError("No readable text found in file.")
+
+            return text
 
         except Exception as e:
             logger.error(f"Extraction failed for {filepath}: {str(e)}")
