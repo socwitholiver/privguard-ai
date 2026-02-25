@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PrivGuard AI Scanner</title>
+
+<style>
+body {
+    background:#0b1220;
+    color:white;
+    font-family:Arial, sans-serif;
+    text-align:center;
+    padding:40px;
+}
+
+.container {
+    max-width:600px;
+    margin:auto;
+    background:#111827;
+    padding:30px;
+    border-radius:10px;
+    box-shadow:0 0 20px rgba(0,0,0,0.5);
+}
+
+button {
+    padding:12px 20px;
+    background:#2563eb;
+    border:none;
+    color:white;
+    cursor:pointer;
+    border-radius:6px;
+}
+
+button:hover {
+    background:#1d4ed8;
+}
+
+pre {
+    text-align:left;
+    background:#020617;
+    padding:15px;
+    border-radius:6px;
+    margin-top:20px;
+}
+</style>
+
+</head>
+<body>
+
+<div class="container">
+    <h1>🔐 PrivGuard AI Scanner</h1>
+
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="file" required><br><br>
+        <button type="submit">Scan Document</button>
+    </form>
+
+    <pre id="result">Results will appear here...</pre>
+</div>
+
+<script>
+document.getElementById("uploadForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+
+    document.getElementById("result").textContent = "Scanning...";
+
+    try {
+        const response = await fetch("/scan", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+
+        document.getElementById("result").textContent =
+            JSON.stringify(data, null, 2);
+
+    } catch (err) {
+        document.getElementById("result").textContent =
+            "Error: " + err.message;
+    }
+});
+</script>
+
+</body>
+</html>

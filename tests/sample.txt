@@ -1,0 +1,4 @@
+email:test@example.com
+phone:0712345678
+ID:12345678
+card:12345677890

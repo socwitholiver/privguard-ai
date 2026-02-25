@@ -1,39 +1,80 @@
+"""
+PrivGuard AI Classifier
+-----------------------
+
+Classifies documents based on detected sensitive data.
+
+This is a rule-based AI simulation for MVP purposes.
+Designed to be easily replaceable with a real ML/NLP model later.
+
+Author: PrivGuard Team
+"""
+
+from typing import Dict
+
+
 class AIClassifier:
-    def generate_insights(self, findings, risk_result):
+    """
+    AI-powered document classifier.
+
+    Determines document sensitivity level based on findings
+    from SensitiveDataDetector.
+    """
+
+    def __init__(self):
+        # Placeholder for future model loading
+        # e.g. load NLP model, embeddings, etc.
+        pass
+
+    def classify(self, findings: Dict) -> Dict:
         """
-        Generate explanations and recommendations based on findings and risk score.
+        Classify document sensitivity.
+
+        Parameters:
+        ----------
+        findings : dict
+            Dictionary of detected sensitive data.
+
+        Returns:
+        -------
+        dict
+            Classification result with label and confidence.
         """
 
-        level = risk_result.get("level", "Unknown")
+        score = 0
 
-        reasons = []
-        recommendations = []
-
-        # Reasons
-        if findings.get("financial"):
-            reasons.append("Financial data detected which could lead to fraud.")
-
+        # Assign weights based on sensitivity
         if findings.get("id_number"):
-            reasons.append("Personal identification numbers detected.")
+            score += 3
 
-        if findings.get("email") or findings.get("phone"):
-            reasons.append("Contact information present which could expose individuals.")
+        if findings.get("financial"):
+            score += 3
 
-        if level == "High":
-            reasons.append("Overall risk level is high due to sensitive data concentration.")
+        if findings.get("email"):
+            score += 1
 
-        # Recommendations
-        if level == "High":
-            recommendations.append("Encrypt this document immediately.")
-            recommendations.append("Restrict access permissions.")
-        elif level == "Medium":
-            recommendations.append("Review document before sharing.")
-            recommendations.append("Consider masking sensitive fields.")
+        if findings.get("phone"):
+            score += 1
+
+        # Determine classification
+        if score >= 5:
+            label = "Highly Confidential"
+            confidence = 0.95
+
+        elif score >= 3:
+            label = "Confidential"
+            confidence = 0.85
+
+        elif score >= 1:
+            label = "Internal"
+            confidence = 0.70
+
         else:
-            recommendations.append("Monitor document usage.")
+            label = "Public"
+            confidence = 0.99
 
         return {
-            "risk_level": level,
-            "reasons": reasons,
-            "recommendations": recommendations
+            "label": label,
+            "confidence": confidence,
+            "score": score
         }
