@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrivGuard AI - Compliance Dashboard</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #0f172a;
+    color: #ffffff;
+}
+
+header {
+    background-color: #1e293b;
+    padding: 20px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: bold;
+    color: #38bdf8;
+}
+
+.container {
+    padding: 30px;
+}
+
+.card {
+    background-color: #1e293b;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.card h3 {
+    margin-top: 0;
+    color: #38bdf8;
+}
+
+.stats {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.stat-box {
+    flex: 1;
+    min-width: 200px;
+    padding: 20px;
+    background-color: #0f172a;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.low { color: #22c55e; }
+.medium { color: #facc15; }
+.high { color: #ef4444; }
+
+button {
+    background-color: #38bdf8;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    opacity: 0.8;
+}
+
+input[type="file"] {
+    margin-bottom: 10px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+th, td {
+    padding: 10px;
+    border-bottom: 1px solid #334155;
+    text-align: left;
+}
+
+th {
+    background-color: #0f172a;
+}
+
+tr:hover {
+    background-color: #1e293b;
+}
+
+ul {
+    list-style-type: disc;
+    padding-left: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    PrivGuard AI - Enterprise Compliance Dashboard
+</header>
+
+<div class="container">
+
+    <!-- Scan Document Card -->
+    <div class="card">
+        <h3>Scan Compliance Document</h3>
+        <input type="file" id="fileInput">
+        <br>
+        <button id="scanBtn">Scan Document</button>
+    </div>
+
+    <!-- Stats Card -->
+    <div class="card">
+        <h3>Latest Scan Summary</h3>
+        <div class="stats">
+            <div class="stat-box">
+                Compliance Score
+                <div id="complianceScore" class="stat-value">--</div>
+            </div>
+            <div class="stat-box">
+                Risk Level
+                <div id="riskLevel" class="stat-value">--</div>
+            </div>
+            <div class="stat-box">
+                Issues Found
+                <div id="issuesFound" class="stat-value">--</div>
+            </div>
+            <div class="stat-box">
+                Status
+                <div id="scanStatus" class="stat-value">--</div>
+            </div>
+        </div>
+
+        <!-- Recommendations Panel -->
+        <div style="margin-top:20px;">
+            <h4 style="color:#38bdf8;">AI Recommendations:</h4>
+            <ul id="recommendationsList">
+                <li>--</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Scan History -->
+    <div class="card">
+        <h3>Recent Scans</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th>Score</th>
+                    <th>Risk</th>
+                    <th>Issues Found</th>
+                    <th>Scanned At</th>
+                </tr>
+            </thead>
+            <tbody id="recentScansTable"></tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+const scanBtn = document.getElementById("scanBtn");
+const fileInput = document.getElementById("fileInput");
+
+scanBtn.addEventListener("click", async () => {
+
+    if (!fileInput.files.length) {
+        alert("Please select a document");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("document", fileInput.files[0]);
+
+    try {
+        const response = await fetch("http://127.0.0.1:5000/api/scan-document", {
+            method: "POST",
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            alert(errorData.error || "Scan failed");
+            return;
+        }
+
+        const result = await response.json();
+        updateDashboard(result);
+
+    } catch (error) {
+        console.error("Scan error:", error);
+        alert("Backend server not reachable.");
+    }
+});
+
+function updateDashboard(data) {
+    document.getElementById("complianceScore").innerText = data.complianceScore + "%";
+
+    const riskEl = document.getElementById("riskLevel");
+    riskEl.innerText = data.riskLevel;
+    riskEl.className = "stat-value " + data.riskLevel.toLowerCase();
+
+    const issuesEl = document.getElementById("issuesFound");
+    if(data.issuesFound.length === 0){
+        issuesEl.innerText = "0";
+    } else {
+        issuesEl.innerText = data.issuesFound.length;
+    }
+
+    document.getElementById("scanStatus").innerText = data.status;
+
+    // Recommendations
+    const recList = document.getElementById("recommendationsList");
+    recList.innerHTML = "";
+    data.recommendations.forEach(rec => {
+        const li = document.createElement("li");
+        li.innerText = rec;
+        recList.appendChild(li);
+    });
+
+    // Add to recent scans table
+    const table = document.getElementById("recentScansTable");
+    const row = document.createElement("tr");
+    row.innerHTML = `
+        <td>${data.filename}</td>
+        <td>${data.complianceScore}%</td>
+        <td>${data.riskLevel}</td>
+        <td>${data.issuesFound.length}</td>
+        <td>${new Date(data.scannedAt).toLocaleString()}</td>
+    `;
+    table.prepend(row);
+}
+</script>
+
+</body>
+</html>

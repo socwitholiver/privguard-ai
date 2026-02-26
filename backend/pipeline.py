@@ -1,75 +1,40 @@
-import os
-import mimetypes
-
-from backend.file_loader import FileLoader
-from backend.detector import SensitiveDataDetector
-from backend.risk_scoring import RiskScorer
-from backend.ai_classifier import AIClassifier
-from backend.logger import get_logger
 from backend.ocr_extractor import OCRExtractor
-
-logger = get_logger()
-
+from backend.detector import IntelligentDataDetector
 
 class PrivGuardPipeline:
     """
-    End-to-end processing pipeline supporting:
-    - Text files
-    - Documents
-    - Images (OCR)
+    End-to-end document processing pipeline.
     """
 
     def __init__(self):
-        self.loader = FileLoader()
-        self.detector = SensitiveDataDetector()
-        self.scorer = RiskScorer()
-        self.classifier = AIClassifier()
         self.ocr = OCRExtractor()
-
-        logger.info("PrivGuard Pipeline initialized.")
-
-    def _is_image(self, filepath):
-        mime, _ = mimetypes.guess_type(filepath)
-        return mime and mime.startswith("image")
+        self.detector = IntelligentDataDetector()
 
     def run(self, filepath):
-        logger.info(f"Starting pipeline for {filepath}")
+        """
+        Full processing pipeline for a document/image.
+        """
+        # Step 1: OCR
+        text = self.ocr.extract_text(filepath)
 
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(filepath)
+        # Step 2: Detect fields
+        findings, doc_type = self.detector.detect_fields(text)
 
-        # Decide processing path
-        if self._is_image(filepath):
-            logger.info("Image detected → running OCR")
-            text = self.ocr.extract_text(filepath)
-        else:
-            logger.info("Document detected → loading file")
-            text = self.loader.load_file(filepath)
-
-        findings = self.detector.detect(text)
-        risk = self.scorer.score(findings)
-        classification = self.classifier.classify(findings)
-
-        result = {
-            "file": os.path.abspath(filepath),
-            "findings": findings,
-            "risk": risk,
-            "classification": classification
-        }
-
-        logger.info("Pipeline completed successfully.")
+        # Step 3: Classify & generate recommendations
+        result = self.detector.classify_document(findings, doc_type)
+        result["file"] = filepath
         return result
 
-
+# CLI support
 if __name__ == "__main__":
     import sys
+    import json
 
     if len(sys.argv) < 2:
-        print("Usage: python -m backend.pipeline <file>")
+        print("Usage: python -m backend.pipeline <file_path>")
         sys.exit(1)
 
+    filepath = sys.argv[1]
     pipeline = PrivGuardPipeline()
-    result = pipeline.run(sys.argv[1])
-
-    import json
+    result = pipeline.run(filepath)
     print(json.dumps(result, indent=4))

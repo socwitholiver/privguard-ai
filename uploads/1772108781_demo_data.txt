@@ -1,0 +1,13 @@
+PrivGuard AI Demonstration Dataset
+
+Employee Record — Confidential
+
+Name: Jane Mwangi
+Email: jane.mwangi@company.co.ke
+Phone: 0712345678
+National ID: 12345678
+Credit Card: 4111111111111111
+
+Notes:
+This document contains personally identifiable information and financial data.
+Handle with strict confidentiality.
