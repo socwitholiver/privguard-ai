@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from typing import Dict, List
 
+from config_loader import load_risk_policy
 
-WEIGHTS = {
-    "national_ids": 30,
-    "phone_numbers": 15,
-    "emails": 10,
-    "kra_pins": 35,
-}
+RISK_POLICY = load_risk_policy()
+WEIGHTS = RISK_POLICY["weights"]
+THRESHOLDS = RISK_POLICY["thresholds"]
+DIVERSITY_BONUS = RISK_POLICY["diversity_bonus"]
 
 
 def calculate_risk_score(findings: Dict[str, List[dict]]) -> int:
@@ -22,18 +21,18 @@ def calculate_risk_score(findings: Dict[str, List[dict]]) -> int:
     # A diversity bonus reflects compounding risk from multiple data types.
     active_types = sum(1 for values in findings.values() if values)
     if active_types >= 3:
-        score += 10
+        score += int(DIVERSITY_BONUS["three_or_more_types"])
     if active_types >= 4:
-        score += 10
+        score += int(DIVERSITY_BONUS["four_or_more_types"])
 
     return min(score, 100)
 
 
 def classify_risk_level(score: int) -> str:
     """Map score to a low/medium/high risk label."""
-    if score >= 70:
+    if score >= int(THRESHOLDS["high"]):
         return "High"
-    if score >= 35:
+    if score >= int(THRESHOLDS["medium"]):
         return "Medium"
     return "Low"
 

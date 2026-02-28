@@ -1,159 +1,324 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PRIVGUARD AI - MVP Preview</title>
+    <title>PRIVGUARD AI - Operations Dashboard</title>
     <style>
+        :root {
+            --bg: #0b1220;
+            --card: #121c2f;
+            --muted: #9fb0cf;
+            --line: #263754;
+            --primary: #3b82f6;
+            --high: #ef4444;
+            --medium: #f59e0b;
+            --low: #22c55e;
+            --text: #e5edff;
+        }
+        * { box-sizing: border-box; }
         body {
-            font-family: "Segoe UI", sans-serif;
-            background: #0f172a;
-            color: #e5e7eb;
-            padding: 28px;
             margin: 0;
+            padding: 22px;
+            font-family: "Segoe UI", sans-serif;
+            background: linear-gradient(180deg, #0b1220 0%, #0d1528 100%);
+            color: var(--text);
         }
-        h1 { margin: 0 0 4px; }
-        .subtitle { color: #94a3b8; margin-bottom: 18px; }
-        .card {
-            background: #1e293b;
-            border-radius: 12px;
-            padding: 18px;
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22);
         }
-        .row {
+        .subtitle { color: var(--muted); margin-top: 4px; }
+        .chip {
+            padding: 8px 12px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            color: var(--muted);
+            background: #0f1a30;
+        }
+        .layout {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 14px;
+        }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .cards4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .kpi-title { color: var(--muted); font-size: 12px; }
+        .kpi-value { font-size: 26px; font-weight: 700; margin-top: 4px; }
+        .kpi-sub { font-size: 12px; color: var(--muted); }
+        .split2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .bar-wrap { margin-bottom: 8px; }
+        .bar-label {
+            display: flex;
+            justify-content: space-between;
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        .bar {
+            width: 100%;
+            height: 8px;
+            border-radius: 999px;
+            background: #0d172c;
+            overflow: hidden;
+        }
+        .bar > span {
+            height: 100%;
+            display: block;
+            background: var(--primary);
+        }
+        .actions-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 12px;
+            gap: 10px;
         }
         label {
             display: block;
-            margin-bottom: 6px;
-            color: #cbd5e1;
-            font-size: 14px;
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 5px;
         }
         input[type="file"], select {
             width: 100%;
-            padding: 10px;
+            padding: 9px;
+            border: 1px solid var(--line);
             border-radius: 8px;
-            border: 1px solid #334155;
-            background: #0f172a;
-            color: #e5e7eb;
-            box-sizing: border-box;
+            background: #0f1a30;
+            color: var(--text);
         }
         button {
-            padding: 10px 16px;
+            margin-top: 10px;
+            margin-right: 8px;
             border: none;
-            background: #2563eb;
+            background: var(--primary);
             color: white;
             border-radius: 8px;
+            padding: 9px 13px;
             font-weight: 700;
             cursor: pointer;
-            margin-right: 8px;
-            margin-top: 12px;
         }
-        button:disabled { background: #475569; cursor: not-allowed; }
+        button:disabled { background: #4b5d82; cursor: not-allowed; }
+        .btn-muted { background: #475569; }
         .badge {
             display: inline-block;
             padding: 6px 10px;
             border-radius: 999px;
-            font-size: 12px;
             font-weight: 700;
+            font-size: 12px;
         }
-        .high { background: #7f1d1d; color: #fecaca; }
-        .medium { background: #78350f; color: #fde68a; }
-        .low { background: #14532d; color: #bbf7d0; }
-        .safe { background: #1e3a8a; color: #bfdbfe; }
-        .finding-group {
-            background: #0f172a;
-            border-radius: 8px;
+        .high { background: #4b1f22; color: #fecaca; }
+        .medium { background: #4a3618; color: #fde68a; }
+        .low { background: #1b4431; color: #bbf7d0; }
+        .safe { background: #1f3f5b; color: #bfdbfe; }
+        .result-block {
+            margin-top: 8px;
             padding: 10px;
-            margin-bottom: 10px;
+            background: #0f1a30;
+            border-radius: 8px;
+            border: 1px solid var(--line);
         }
-        .meta { color: #cbd5e1; font-size: 14px; margin-top: 8px; }
+        .meta { color: var(--muted); font-size: 13px; margin-top: 6px; }
         pre {
-            background: #020617;
-            border: 1px solid #334155;
+            background: #071023;
+            border: 1px solid var(--line);
             border-radius: 8px;
-            padding: 10px;
+            padding: 8px;
             white-space: pre-wrap;
-            max-height: 230px;
+            max-height: 210px;
             overflow: auto;
-            color: #cbd5e1;
+            color: #c7d7f7;
         }
-        .ok { color: #22c55e; font-weight: 700; }
-        .fail { color: #ef4444; font-weight: 700; }
+        .ok { color: var(--low); font-weight: 700; }
+        .fail { color: var(--high); font-weight: 700; }
+        .recent-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--line);
+        }
+        .recent-row:last-child { border-bottom: none; }
+        @media (max-width: 1100px) {
+            .layout { grid-template-columns: 1fr; }
+            .cards4 { grid-template-columns: 1fr 1fr; }
+            .actions-grid { grid-template-columns: 1fr; }
+            .split2 { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
-<h1>PRIVGUARD AI</h1>
-<p class="subtitle">MVP Preview: OCR/Text Scan, Protect, and Redaction Verification</p>
-
-<div class="card">
-    <div class="row">
+    <div class="topbar">
         <div>
-            <label for="scanFile">Scan File (.txt / image)</label>
-            <input id="scanFile" type="file">
+            <h1>PRIVGUARD AI</h1>
+            <div class="subtitle">Compliance and Sensitive Data Operations Dashboard</div>
         </div>
         <div>
-            <label for="protectFile">Protect File (.txt / image)</label>
-            <input id="protectFile" type="file">
-        </div>
-        <div>
-            <label for="protectAction">Protection Action</label>
-            <select id="protectAction">
-                <option value="redact">Redact</option>
-                <option value="encrypt">Encrypt</option>
-            </select>
+            <span class="chip">{{ user.username }} ({{ user.role }})</span>
+            <button class="btn-muted" onclick="logout()">Logout</button>
         </div>
     </div>
-    <button id="scanBtn" onclick="scanFile()">Scan</button>
-    <button id="protectBtn" onclick="protectFile()">Protect</button>
-</div>
 
-<div class="card">
-    <h3>Verify Redaction Quality</h3>
-    <div class="row">
-        <div>
-            <label for="originalFile">Original File</label>
-            <input id="originalFile" type="file">
+    <div class="cards4">
+        <div class="card">
+            <div class="kpi-title">Documents Scanned</div>
+            <div class="kpi-value" id="kpiDocs">0</div>
+            <div class="kpi-sub">Recent rolling window</div>
         </div>
-        <div>
-            <label for="protectedFile">Protected File (.txt)</label>
-            <input id="protectedFile" type="file">
+        <div class="card">
+            <div class="kpi-title">Average Risk Score</div>
+            <div class="kpi-value" id="kpiAvgRisk">0</div>
+            <div class="kpi-sub">Across recent scans</div>
         </div>
-        <div>
-            <button id="verifyBtn" onclick="verifyRedaction()">Verify</button>
+        <div class="card">
+            <div class="kpi-title">High Risk Ratio</div>
+            <div class="kpi-value" id="kpiHighRatio">0%</div>
+            <div class="kpi-sub">Risk posture indicator</div>
+        </div>
+        <div class="card">
+            <div class="kpi-title">Sensitive Items</div>
+            <div class="kpi-value" id="kpiEntities">0</div>
+            <div class="kpi-sub">IDs, phones, emails, KRA PINs</div>
         </div>
     </div>
-</div>
 
-<div class="card" id="scanResults" style="display:none;">
-    <h3>Scan Results</h3>
-    <div id="riskContainer"></div>
-    <div class="meta" id="riskScore"></div>
-    <div class="meta" id="riskInsights"></div>
-    <h4>Detected Items</h4>
-    <div id="findings"></div>
-    <h4>Extracted Text Preview</h4>
-    <pre id="extractedPreview"></pre>
-</div>
+    <div class="layout">
+        <div>
+            <div class="card">
+                <h3>Workflow Actions</h3>
+                <div class="actions-grid">
+                    <div>
+                        <label for="scanFile">Scan File (.txt / image)</label>
+                        <input id="scanFile" type="file">
+                    </div>
+                    <div>
+                        <label for="protectFile">Protect File (.txt / image)</label>
+                        <input id="protectFile" type="file">
+                    </div>
+                    <div>
+                        <label for="protectAction">Protection Action</label>
+                        <select id="protectAction">
+                            <option value="redact">Redact</option>
+                            <option value="encrypt">Encrypt</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="scanBtn" onclick="scanFile()">Scan</button>
+                <button id="protectBtn" onclick="protectFile()">Protect</button>
+            </div>
 
-<div class="card" id="protectResults" style="display:none;">
-    <h3>Protection Results</h3>
-    <div class="meta" id="protectMeta"></div>
-    <div class="meta" id="qualityMeta"></div>
-    <pre id="protectPreview"></pre>
-</div>
+            <div class="card">
+                <h3>Verify Redaction Quality</h3>
+                <div class="actions-grid">
+                    <div>
+                        <label for="originalFile">Original File</label>
+                        <input id="originalFile" type="file">
+                    </div>
+                    <div>
+                        <label for="protectedFile">Protected File (.txt)</label>
+                        <input id="protectedFile" type="file">
+                    </div>
+                    <div>
+                        <button id="verifyBtn" onclick="verifyRedaction()">Verify</button>
+                    </div>
+                </div>
+            </div>
 
-<div class="card" id="verifyResults" style="display:none;">
-    <h3>Redaction Verification</h3>
-    <div id="verifyMeta"></div>
-    <pre id="verifyLeaks"></pre>
-</div>
+            <div class="card" id="scanResults" style="display:none;">
+                <h3>Scan Results</h3>
+                <div id="riskContainer"></div>
+                <div class="meta" id="riskScore"></div>
+                <div class="meta" id="riskInsights"></div>
+                <div class="result-block">
+                    <h4>Detected Items</h4>
+                    <div id="findings"></div>
+                </div>
+                <div class="result-block">
+                    <h4>Extracted Text Preview</h4>
+                    <pre id="extractedPreview"></pre>
+                </div>
+            </div>
 
-<div class="card">
-    <h3>Recent Scans</h3>
-    <div id="recentScans"></div>
-</div>
+            <div class="card" id="protectResults" style="display:none;">
+                <h3>Protection Results</h3>
+                <div class="meta" id="protectMeta"></div>
+                <div class="meta" id="qualityMeta"></div>
+                <pre id="protectPreview"></pre>
+            </div>
+
+            <div class="card" id="verifyResults" style="display:none;">
+                <h3>Redaction Verification</h3>
+                <div id="verifyMeta"></div>
+                <pre id="verifyLeaks"></pre>
+            </div>
+        </div>
+
+        <div>
+            <div class="card">
+                <h3>Risk Distribution</h3>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>High</span><span id="riskHighLabel">0</span></div>
+                    <div class="bar"><span id="riskHighBar" style="width:0%;background:var(--high)"></span></div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>Medium</span><span id="riskMediumLabel">0</span></div>
+                    <div class="bar"><span id="riskMediumBar" style="width:0%;background:var(--medium)"></span></div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>Low</span><span id="riskLowLabel">0</span></div>
+                    <div class="bar"><span id="riskLowBar" style="width:0%;background:var(--low)"></span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Entity Totals</h3>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>National IDs</span><span id="entId">0</span></div>
+                    <div class="bar"><span id="entIdBar" style="width:0%"></span></div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>Phone Numbers</span><span id="entPhone">0</span></div>
+                    <div class="bar"><span id="entPhoneBar" style="width:0%"></span></div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>Emails</span><span id="entEmail">0</span></div>
+                    <div class="bar"><span id="entEmailBar" style="width:0%"></span></div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>KRA PINs</span><span id="entKra">0</span></div>
+                    <div class="bar"><span id="entKraBar" style="width:0%"></span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Recent Scans</h3>
+                <div id="recentScans"></div>
+            </div>
+
+            {% if user.role == "admin" %}
+            <div class="card">
+                <h3>Admin Operations</h3>
+                <button onclick="exportAudit()">Export Signed Audit</button>
+                <button onclick="runRetention()">Run Retention Cleanup</button>
+                <button onclick="runOcrDiagnostics()">OCR Diagnostics</button>
+                <pre id="adminResult"></pre>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 
 <script>
 function badgeClass(level) {
@@ -161,6 +326,41 @@ function badgeClass(level) {
     if (level === "Medium") return "medium";
     if (level === "Low") return "low";
     return "safe";
+}
+
+function setBarWidth(id, value, total) {
+    const pct = total > 0 ? Math.min(100, (value / total) * 100) : 0;
+    document.getElementById(id).style.width = `${pct}%`;
+}
+
+function renderSummary(summary) {
+    const docs = summary.documents_scanned || 0;
+    const entities = summary.entity_totals || {};
+    const entityTotal = (entities.national_ids || 0) + (entities.phone_numbers || 0) + (entities.emails || 0) + (entities.kra_pins || 0);
+
+    document.getElementById("kpiDocs").textContent = docs;
+    document.getElementById("kpiAvgRisk").textContent = summary.average_risk_score ?? 0;
+    document.getElementById("kpiHighRatio").textContent = `${summary.high_risk_ratio ?? 0}%`;
+    document.getElementById("kpiEntities").textContent = entityTotal;
+
+    const risks = summary.risk_distribution || {High: 0, Medium: 0, Low: 0};
+    const riskTotal = risks.High + risks.Medium + risks.Low;
+    document.getElementById("riskHighLabel").textContent = risks.High;
+    document.getElementById("riskMediumLabel").textContent = risks.Medium;
+    document.getElementById("riskLowLabel").textContent = risks.Low;
+    setBarWidth("riskHighBar", risks.High, riskTotal);
+    setBarWidth("riskMediumBar", risks.Medium, riskTotal);
+    setBarWidth("riskLowBar", risks.Low, riskTotal);
+
+    const maxEntity = Math.max(1, entities.national_ids || 0, entities.phone_numbers || 0, entities.emails || 0, entities.kra_pins || 0);
+    document.getElementById("entId").textContent = entities.national_ids || 0;
+    document.getElementById("entPhone").textContent = entities.phone_numbers || 0;
+    document.getElementById("entEmail").textContent = entities.emails || 0;
+    document.getElementById("entKra").textContent = entities.kra_pins || 0;
+    setBarWidth("entIdBar", entities.national_ids || 0, maxEntity);
+    setBarWidth("entPhoneBar", entities.phone_numbers || 0, maxEntity);
+    setBarWidth("entEmailBar", entities.emails || 0, maxEntity);
+    setBarWidth("entKraBar", entities.kra_pins || 0, maxEntity);
 }
 
 async function scanFile() {
@@ -190,10 +390,8 @@ async function scanFile() {
         for (const key in data.findings) {
             const entries = data.findings[key] || [];
             if (!entries.length) continue;
-            const items = entries
-                .map(entry => `<li>${entry.value} (confidence: ${Number(entry.confidence).toFixed(2)})</li>`)
-                .join("");
-            findingsHtml += `<div class="finding-group"><strong>${key}</strong><ul>${items}</ul></div>`;
+            const items = entries.map(entry => `<li>${entry.value} (confidence: ${Number(entry.confidence).toFixed(2)})</li>`).join("");
+            findingsHtml += `<div class="result-block"><strong>${key}</strong><ul>${items}</ul></div>`;
         }
         document.getElementById("findings").innerHTML = findingsHtml || "<div>No sensitive data found.</div>";
         document.getElementById("extractedPreview").textContent = data.extracted_preview || "(no extracted text)";
@@ -234,8 +432,7 @@ async function protectFile() {
         if (data.quality) {
             const statusClass = data.quality.quality_status === "PASS" ? "ok" : "fail";
             document.getElementById("qualityMeta").innerHTML =
-                `Redaction Quality: <span class="${statusClass}">${data.quality.quality_status}</span> ` +
-                `| Coverage: ${data.quality.coverage_percent}% | Leaks: ${data.quality.leak_count}`;
+                `Redaction Quality: <span class="${statusClass}">${data.quality.quality_status}</span> | Coverage: ${data.quality.coverage_percent}% | Leaks: ${data.quality.leak_count}`;
         } else {
             document.getElementById("qualityMeta").textContent = "Quality metrics are available for redaction actions.";
         }
@@ -271,8 +468,7 @@ async function verifyRedaction() {
         document.getElementById("verifyResults").style.display = "block";
         const statusClass = data.quality_status === "PASS" ? "ok" : "fail";
         document.getElementById("verifyMeta").innerHTML =
-            `Status: <span class="${statusClass}">${data.quality_status}</span> | ` +
-            `Coverage: ${data.coverage_percent}% | Leaks: ${data.leak_count}/${data.total_sensitive_items}`;
+            `Status: <span class="${statusClass}">${data.quality_status}</span> | Coverage: ${data.coverage_percent}% | Leaks: ${data.leak_count}/${data.total_sensitive_items}`;
         document.getElementById("verifyLeaks").textContent = JSON.stringify(data.leaked_items, null, 2);
     } catch (error) {
         alert(error.message);
@@ -284,12 +480,39 @@ async function verifyRedaction() {
 
 async function loadRecentScans() {
     const response = await fetch("/api/dashboard-data");
+    if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+    }
     const data = await response.json();
-    const html = data.recent_scans.map(scan =>
-        `<div class="finding-group"><strong>${scan.filename}</strong> ` +
-        `<span class="badge ${badgeClass(scan.risk_level)}">${scan.risk_level} (${scan.risk_score}/100)</span></div>`
+    renderSummary(data.summary || {});
+    const html = (data.recent_scans || []).map(scan =>
+        `<div class="recent-row"><strong>${scan.filename}</strong> <span class="badge ${badgeClass(scan.risk_level)}">${scan.risk_level} (${scan.risk_score}/100)</span></div>`
     ).join("");
-    document.getElementById("recentScans").innerHTML = html || "<div>No scans yet.</div>";
+    document.getElementById("recentScans").innerHTML = html || "<div class='meta'>No scans yet.</div>";
+}
+
+async function logout() {
+    await fetch("/logout", { method: "POST" });
+    window.location.href = "/login";
+}
+
+async function exportAudit() {
+    const res = await fetch("/admin/export-audit", { method: "POST" });
+    const data = await res.json();
+    document.getElementById("adminResult").textContent = JSON.stringify(data, null, 2);
+}
+
+async function runRetention() {
+    const res = await fetch("/admin/retention-cleanup", { method: "POST" });
+    const data = await res.json();
+    document.getElementById("adminResult").textContent = JSON.stringify(data, null, 2);
+}
+
+async function runOcrDiagnostics() {
+    const res = await fetch("/admin/ocr-diagnostics", { method: "POST" });
+    const data = await res.json();
+    document.getElementById("adminResult").textContent = JSON.stringify(data, null, 2);
 }
 
 window.onload = loadRecentScans;

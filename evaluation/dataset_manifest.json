@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "description": "Sprint 1 benchmark dataset manifest for PRIVGUARD AI.",
+  "samples": [
+    {
+      "id": "school_admission_sample",
+      "path": "demo_docs/school_admission_sample.txt",
+      "ground_truth": "evaluation/ground_truth/school_admission_sample.json"
+    },
+    {
+      "id": "sme_payroll_sample",
+      "path": "demo_docs/sme_payroll_sample.txt",
+      "ground_truth": "evaluation/ground_truth/sme_payroll_sample.json"
+    }
+  ]
+}

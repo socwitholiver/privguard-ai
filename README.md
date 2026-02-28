@@ -124,6 +124,30 @@ python main.py decrypt --input outputs/sme_payroll_sample.encrypted.txt --key-pa
 python main.py verify-redaction --original demo_docs/sme_payroll_sample.txt --protected outputs/sme_payroll_sample.redacted.txt --json-output outputs/redaction_quality.json
 ```
 
+### 5) Signed audit export
+
+```bash
+python main.py export-audit
+```
+
+### 6) Retention cleanup
+
+```bash
+python main.py retention-cleanup
+```
+
+### 7) Build pilot evidence pack
+
+```bash
+python main.py build-evidence-pack
+```
+
+### 8) OCR diagnostics
+
+```bash
+python main.py ocr-diagnostics
+```
+
 This checks whether any originally detected sensitive values are still present in
 the protected output and returns:
 - `PASS` if no leaks remain
@@ -141,6 +165,47 @@ Tests cover:
 - Detection of all required sensitive types
 - Risk level classification behavior
 - Redaction/masking and encryption roundtrip
+
+## KPI Evaluation Toolkit (Sprint 1)
+
+Generate measurable reports for readiness tracking:
+
+```bash
+python evaluation/evaluate_detection.py
+python evaluation/evaluate_redaction.py
+python evaluation/evaluate_ocr.py
+python evaluation/benchmark_perf.py
+```
+
+Generated artifacts:
+- `reports/eval_detection.json`
+- `reports/eval_redaction.json`
+- `reports/eval_ocr.json`
+- `reports/perf_benchmark.json`
+
+## Audit Logging (SQLite)
+
+Every scan/protect/verify operation now logs audit events to:
+
+- `instance/privguard_audit.db`
+
+This supports traceability and accountability evidence for compliance reviews.
+
+## Web Authentication and RBAC (Sprint 2)
+
+The web dashboard now requires login and enforces role-based permissions.
+
+Default demo users:
+
+- `admin` / `Admin@123`
+- `reviewer` / `Reviewer@123`
+
+Admin-only actions:
+- Signed audit export (`/admin/export-audit`)
+- Retention cleanup (`/admin/retention-cleanup`)
+- OCR diagnostics (`/admin/ocr-diagnostics`)
+
+Change credentials in `config/system_config.yaml` before production use.
 
 ## Compliance Notes (Kenya DPA 2019)
 

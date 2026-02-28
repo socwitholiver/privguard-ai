@@ -1,0 +1,17 @@
+{
+  "dataset_manifest": "evaluation\\dataset_manifest.json",
+  "samples_benchmarked": 2,
+  "p95_latency_ms": 1.67,
+  "avg_latency_ms": 1.66,
+  "peak_memory_mb": 0.02,
+  "sample_runs": [
+    {
+      "sample_id": "school_admission_sample",
+      "latency_ms": 1.65
+    },
+    {
+      "sample_id": "sme_payroll_sample",
+      "latency_ms": 1.67
+    }
+  ]
+}

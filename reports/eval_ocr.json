@@ -1,0 +1,7 @@
+{
+  "dataset_manifest": "evaluation\\dataset_manifest.json",
+  "image_samples_count": 0,
+  "average_wer": null,
+  "samples": [],
+  "note": "Add image samples with 'reference_text' in ground truth for full OCR KPI coverage."
+}

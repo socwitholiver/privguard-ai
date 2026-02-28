@@ -1,0 +1,22 @@
+{
+  "dataset_manifest": "evaluation\\dataset_manifest.json",
+  "redaction_leakage_rate": 0.0,
+  "total_leaks": 0,
+  "total_sensitive_items": 12,
+  "samples": [
+    {
+      "sample_id": "school_admission_sample",
+      "quality_status": "PASS",
+      "coverage_percent": 100.0,
+      "leak_count": 0,
+      "total_sensitive_items": 4
+    },
+    {
+      "sample_id": "sme_payroll_sample",
+      "quality_status": "PASS",
+      "coverage_percent": 100.0,
+      "leak_count": 0,
+      "total_sensitive_items": 8
+    }
+  ]
+}

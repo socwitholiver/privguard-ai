@@ -1,0 +1,11 @@
+version: "1.0.0"
+patterns:
+  national_ids: "\\b\\d{7,8}\\b"
+  phone_numbers: "(?<!\\w)(?:\\+254|0)(?:7\\d{8}|1\\d{8})(?!\\w)"
+  emails: "\\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[A-Za-z]{2,}\\b"
+  kra_pins: "\\b[A-Z]\\d{9}[A-Z]\\b"
+type_keywords:
+  email: ["email", "e-mail", "contact", "address"]
+  phone: ["phone", "mobile", "tel", "contact"]
+  national_id: ["id", "national", "identity", "citizen", "number"]
+  kra_pin: ["kra", "pin", "tax", "revenue", "identifier"]

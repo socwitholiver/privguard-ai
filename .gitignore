@@ -30,3 +30,7 @@ uploads/
 outputs/
 keys/
 instance/
+exports/
+pilot/evidence_pack_*/
+pilot/evidence_pack_*.zip
+reports/scan_sample.json

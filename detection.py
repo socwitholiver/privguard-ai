@@ -10,18 +10,19 @@ import re
 from dataclasses import dataclass, asdict
 from typing import Dict, List
 
+from config_loader import load_detection_config
 
-EMAIL_PATTERN = re.compile(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}\b")
-PHONE_PATTERN = re.compile(r"(?<!\w)(?:\+254|0)(?:7\d{8}|1\d{8})(?!\w)")
-NATIONAL_ID_PATTERN = re.compile(r"\b\d{7,8}\b")
-KRA_PIN_PATTERN = re.compile(r"\b[A-Z]\d{9}[A-Z]\b")
+DETECTION_CONFIG = load_detection_config()
+PATTERNS = DETECTION_CONFIG["patterns"]
+
+EMAIL_PATTERN = re.compile(PATTERNS["emails"])
+PHONE_PATTERN = re.compile(PATTERNS["phone_numbers"])
+NATIONAL_ID_PATTERN = re.compile(PATTERNS["national_ids"])
+KRA_PIN_PATTERN = re.compile(PATTERNS["kra_pins"])
 
 
 TYPE_KEYWORDS = {
-    "email": {"email", "e-mail", "contact", "address"},
-    "phone": {"phone", "mobile", "tel", "contact"},
-    "national_id": {"id", "national", "identity", "citizen", "number"},
-    "kra_pin": {"kra", "pin", "tax", "revenue", "identifier"},
+    key: set(values) for key, values in DETECTION_CONFIG["type_keywords"].items()
 }
 
 

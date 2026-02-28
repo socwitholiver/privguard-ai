@@ -13,8 +13,12 @@ from typing import Dict
 
 from classification import build_risk_summary
 from dashboard import render_dashboard
-from detection import detect_sensitive_data
+from detection import count_sensitive_items, detect_sensitive_data
 from extraction import read_document_text
+from ops.audit_export import export_signed_audit
+from ops.ocr_diagnostics import run_ocr_diagnostics
+from ops.retention import run_retention_cleanup
+from pilot.build_evidence_pack import build_pack
 from protection import (
     decrypt_text,
     encrypt_text,
@@ -26,6 +30,8 @@ from protection import (
     validate_encrypted_token,
     verify_redaction_quality,
 )
+from storage.audit_repo import log_audit_event, log_scan_event
+from storage.db import init_db
 
 
 def write_output(path: Path, content: str) -> None:
@@ -46,6 +52,25 @@ def run_scan(input_path: Path, show_dashboard: bool = True) -> Dict[str, object]
 
     if show_dashboard:
         render_dashboard(findings, risk_summary)
+    total_items = count_sensitive_items(findings)
+    log_scan_event(
+        filename=input_path.name,
+        risk_level=str(risk_summary["level"]),
+        risk_score=int(risk_summary["score"]),
+        total_sensitive_items=total_items,
+        source="cli",
+    )
+    log_audit_event(
+        event_type="scan",
+        actor="cli-user",
+        source="cli",
+        details={
+            "filename": input_path.name,
+            "risk_level": risk_summary["level"],
+            "risk_score": risk_summary["score"],
+            "total_sensitive_items": total_items,
+        },
+    )
     return report
 
 
@@ -63,6 +88,17 @@ def run_protection(
         output_file = output_dir / f"{base_name}.redacted.txt"
         write_output(output_file, protected)
         quality = verify_redaction_quality(findings, protected)
+        log_audit_event(
+            event_type="protect_redact",
+            actor="cli-user",
+            source="cli",
+            details={
+                "filename": input_path.name,
+                "output_file": str(output_file),
+                "quality_status": quality["quality_status"],
+                "leak_count": quality["leak_count"],
+            },
+        )
         return {"action": action, "output_file": str(output_file), "quality": quality}
 
     if action == "mask":
@@ -70,6 +106,17 @@ def run_protection(
         output_file = output_dir / f"{base_name}.masked.txt"
         write_output(output_file, protected)
         quality = verify_redaction_quality(findings, protected)
+        log_audit_event(
+            event_type="protect_mask",
+            actor="cli-user",
+            source="cli",
+            details={
+                "filename": input_path.name,
+                "output_file": str(output_file),
+                "quality_status": quality["quality_status"],
+                "leak_count": quality["leak_count"],
+            },
+        )
         return {"action": action, "output_file": str(output_file), "quality": quality}
 
     if action == "encrypt":
@@ -80,6 +127,16 @@ def run_protection(
         encrypted = encrypt_text(text, key)
         output_file = output_dir / f"{base_name}.encrypted.txt"
         write_output(output_file, encrypted)
+        log_audit_event(
+            event_type="protect_encrypt",
+            actor="cli-user",
+            source="cli",
+            details={
+                "filename": input_path.name,
+                "output_file": str(output_file),
+                "key_file": str(key_path),
+            },
+        )
         return {
             "action": action,
             "output_file": str(output_file),
@@ -98,6 +155,16 @@ def run_decrypt(input_path: Path, key_path: Path, output_dir: Path) -> Dict[str,
     plain_text = decrypt_text(token, key)
     output_file = output_dir / f"{input_path.stem}.decrypted.txt"
     write_output(output_file, plain_text)
+    log_audit_event(
+        event_type="decrypt",
+        actor="cli-user",
+        source="cli",
+        details={
+            "input_file": input_path.name,
+            "key_file": key_path.name,
+            "output_file": str(output_file),
+        },
+    )
     return {"output_file": str(output_file)}
 
 
@@ -170,10 +237,28 @@ def parser_builder() -> argparse.ArgumentParser:
         required=False,
         help="Optional path to save verification report JSON.",
     )
+
+    sub.add_parser(
+        "export-audit",
+        help="Export signed audit events to JSON and signature files.",
+    )
+    sub.add_parser(
+        "retention-cleanup",
+        help="Run retention/deletion policy cleanup for files and audit data.",
+    )
+    sub.add_parser(
+        "build-evidence-pack",
+        help="Generate pilot evidence pack archive from reports/docs/audit export.",
+    )
+    sub.add_parser(
+        "ocr-diagnostics",
+        help="Check local OCR readiness and Tesseract availability.",
+    )
     return parser
 
 
 def main() -> int:
+    init_db()
     parser = parser_builder()
     args = parser.parse_args()
 
@@ -207,6 +292,17 @@ def main() -> int:
             protected_text = read_document_text(Path(args.protected))
             original_findings = detect_sensitive_data(original_text)
             quality = verify_redaction_quality(original_findings, protected_text)
+            log_audit_event(
+                event_type="verify_redaction",
+                actor="cli-user",
+                source="cli",
+                details={
+                    "original_file": Path(args.original).name,
+                    "protected_file": Path(args.protected).name,
+                    "quality_status": quality["quality_status"],
+                    "leak_count": quality["leak_count"],
+                },
+            )
             print(json.dumps(quality, indent=2))
             if args.json_output:
                 quality_path = Path(args.json_output)
@@ -220,6 +316,50 @@ def main() -> int:
                 input_path=Path(args.input),
                 key_path=Path(args.key_path),
                 output_dir=Path(args.output_dir),
+            )
+            print(json.dumps(result, indent=2))
+            return 0
+
+        if args.command == "export-audit":
+            result = export_signed_audit(limit=5000)
+            log_audit_event(
+                event_type="export_audit",
+                actor="cli-user",
+                source="cli",
+                details=result,
+            )
+            print(json.dumps(result, indent=2))
+            return 0
+
+        if args.command == "retention-cleanup":
+            result = run_retention_cleanup()
+            log_audit_event(
+                event_type="retention_cleanup",
+                actor="cli-user",
+                source="cli",
+                details=result,
+            )
+            print(json.dumps(result, indent=2))
+            return 0
+
+        if args.command == "build-evidence-pack":
+            result = build_pack()
+            log_audit_event(
+                event_type="build_evidence_pack",
+                actor="cli-user",
+                source="cli",
+                details=result,
+            )
+            print(json.dumps(result, indent=2))
+            return 0
+
+        if args.command == "ocr-diagnostics":
+            result = run_ocr_diagnostics()
+            log_audit_event(
+                event_type="ocr_diagnostics",
+                actor="cli-user",
+                source="cli",
+                details=result,
             )
             print(json.dumps(result, indent=2))
             return 0
