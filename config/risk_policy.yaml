@@ -1,0 +1,12 @@
+version: "1.0.0"
+weights:
+  national_ids: 30
+  phone_numbers: 15
+  emails: 10
+  kra_pins: 35
+diversity_bonus:
+  three_or_more_types: 10
+  four_or_more_types: 10
+thresholds:
+  high: 70
+  medium: 35

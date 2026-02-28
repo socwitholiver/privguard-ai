@@ -1,251 +1,618 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PrivGuard AI - Compliance Dashboard</title>
-
-<style>
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background-color: #0f172a;
-    color: #ffffff;
-}
-
-header {
-    background-color: #1e293b;
-    padding: 20px;
-    text-align: center;
-    font-size: 22px;
-    font-weight: bold;
-    color: #38bdf8;
-}
-
-.container {
-    padding: 30px;
-}
-
-.card {
-    background-color: #1e293b;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-.card h3 {
-    margin-top: 0;
-    color: #38bdf8;
-}
-
-.stats {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-
-.stat-box {
-    flex: 1;
-    min-width: 200px;
-    padding: 20px;
-    background-color: #0f172a;
-    border-radius: 8px;
-    text-align: center;
-}
-
-.stat-value {
-    font-size: 28px;
-    font-weight: bold;
-    margin-top: 10px;
-}
-
-.low { color: #22c55e; }
-.medium { color: #facc15; }
-.high { color: #ef4444; }
-
-button {
-    background-color: #38bdf8;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-button:hover {
-    opacity: 0.8;
-}
-
-input[type="file"] {
-    margin-bottom: 10px;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
-
-th, td {
-    padding: 10px;
-    border-bottom: 1px solid #334155;
-    text-align: left;
-}
-
-th {
-    background-color: #0f172a;
-}
-
-tr:hover {
-    background-color: #1e293b;
-}
-
-ul {
-    list-style-type: disc;
-    padding-left: 20px;
-}
-</style>
+    <title>PRIVGUARD AI - Operations Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Roboto:wght@500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/privguard-dashboard.css">
 </head>
-
 <body>
-
-<header>
-    PrivGuard AI - Enterprise Compliance Dashboard
-</header>
-
-<div class="container">
-
-    <!-- Scan Document Card -->
-    <div class="card">
-        <h3>Scan Compliance Document</h3>
-        <input type="file" id="fileInput">
-        <br>
-        <button id="scanBtn">Scan Document</button>
-    </div>
-
-    <!-- Stats Card -->
-    <div class="card">
-        <h3>Latest Scan Summary</h3>
-        <div class="stats">
-            <div class="stat-box">
-                Compliance Score
-                <div id="complianceScore" class="stat-value">--</div>
-            </div>
-            <div class="stat-box">
-                Risk Level
-                <div id="riskLevel" class="stat-value">--</div>
-            </div>
-            <div class="stat-box">
-                Issues Found
-                <div id="issuesFound" class="stat-value">--</div>
-            </div>
-            <div class="stat-box">
-                Status
-                <div id="scanStatus" class="stat-value">--</div>
-            </div>
+<div class="pg-shell">
+    <div class="topbar">
+        <div>
+            <h1>PRIVGUARD AI</h1>
+            <div class="subtitle">Compliance and Sensitive Data Operations Dashboard</div>
         </div>
-
-        <!-- Recommendations Panel -->
-        <div style="margin-top:20px;">
-            <h4 style="color:#38bdf8;">AI Recommendations:</h4>
-            <ul id="recommendationsList">
-                <li>--</li>
-            </ul>
+        <div>
+            <span class="chip">{{ user.username }} ({{ user.role }})</span>
+            <button class="btn-muted" onclick="logout()">Logout</button>
         </div>
     </div>
 
-    <!-- Scan History -->
-    <div class="card">
-        <h3>Recent Scans</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Filename</th>
-                    <th>Score</th>
-                    <th>Risk</th>
-                    <th>Issues Found</th>
-                    <th>Scanned At</th>
-                </tr>
-            </thead>
-            <tbody id="recentScansTable"></tbody>
-        </table>
+    <div class="cards4">
+        <div class="card">
+            <div class="kpi-title">Documents Scanned</div>
+            <div class="kpi-value" id="kpiDocs">0</div>
+            <div class="kpi-sub">Recent rolling window</div>
+        </div>
+        <div class="card">
+            <div class="kpi-title">Average Risk Score</div>
+            <div class="kpi-value" id="kpiAvgRisk">0</div>
+            <div class="kpi-sub">Across recent scans</div>
+        </div>
+        <div class="card">
+            <div class="kpi-title">High Risk Ratio</div>
+            <div class="kpi-value" id="kpiHighRatio">0%</div>
+            <div class="kpi-sub">Risk posture indicator</div>
+        </div>
+        <div class="card">
+            <div class="kpi-title">Sensitive Items</div>
+            <div class="kpi-value" id="kpiEntities">0</div>
+            <div class="kpi-sub">IDs, phones, emails, KRA PINs</div>
+        </div>
     </div>
 
-</div>
+    <div class="layout">
+        <div>
+            <div class="card">
+                <h3>Workflow Actions</h3>
+                <div id="scanDropzone" class="upload-dropzone">
+                    <div class="upload-dropzone-title">Drag and drop a document to scan</div>
+                    <div class="upload-dropzone-sub">or use the file pickers below</div>
+                    <div id="scanFilePill" class="file-pill">No scan file selected</div>
+                </div>
+                <div class="actions-grid">
+                    <div>
+                        <label for="scanFile">Scan File (.txt / image)</label>
+                        <input id="scanFile" type="file">
+                    </div>
+                    <div>
+                        <label for="protectFile">Protect File (.txt / image)</label>
+                        <input id="protectFile" type="file">
+                        <div id="protectFilePill" class="file-pill">No protect file selected</div>
+                    </div>
+                    <div>
+                        <label for="protectAction">Protection Action</label>
+                        <select id="protectAction">
+                            <option value="redact">Redact</option>
+                            <option value="encrypt">Encrypt</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="scanBtn" onclick="scanFile()">Scan</button>
+                <button id="protectBtn" onclick="protectFile()">Protect</button>
+            </div>
+
+            <div class="card">
+                <h3>Verify Redaction Quality</h3>
+                <div class="actions-grid">
+                    <div>
+                        <label for="originalFile">Original File</label>
+                        <input id="originalFile" type="file">
+                    </div>
+                    <div>
+                        <label for="protectedFile">Protected File (.txt)</label>
+                        <input id="protectedFile" type="file">
+                    </div>
+                    <div>
+                        <button id="verifyBtn" onclick="verifyRedaction()">Verify</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="processTimelineCard">
+                <div class="timeline">
+                    <div class="timeline-header">
+                        <div class="timeline-title" id="timelineTitle">Processing Timeline</div>
+                        <div class="timeline-status" id="timelineStatus">Idle</div>
+                    </div>
+                    <div class="timeline-progress"><span id="timelineProgressBar"></span></div>
+                    <ul class="timeline-steps">
+                        <li id="timelineStep0" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel0">Upload Received</span></li>
+                        <li id="timelineStep1" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel1">Extracting Content</span></li>
+                        <li id="timelineStep2" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel2">Detecting Sensitive Data</span></li>
+                        <li id="timelineStep3" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel3">Classifying Risk</span></li>
+                        <li id="timelineStep4" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel4">Completed</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card" id="scanResults" hidden>
+                <h3>Scan Results</h3>
+                <div id="riskContainer"></div>
+                <div class="meta" id="riskScore"></div>
+                <div class="meta" id="riskInsights"></div>
+                <div class="result-block">
+                    <h4>Detected Items</h4>
+                    <div id="findings"></div>
+                </div>
+                <div class="result-block">
+                    <h4>Extracted Text Preview</h4>
+                    <pre id="extractedPreview"></pre>
+                </div>
+            </div>
+
+            <div class="card" id="protectResults" hidden>
+                <h3>Protection Results</h3>
+                <div class="meta" id="protectMeta"></div>
+                <div class="meta" id="qualityMeta"></div>
+                <pre id="protectPreview"></pre>
+            </div>
+
+            <div class="card" id="verifyResults" hidden>
+                <h3>Redaction Verification</h3>
+                <div id="verifyMeta"></div>
+                <pre id="verifyLeaks"></pre>
+            </div>
+        </div>
+
+        <div>
+            <div class="card">
+                <h3>Risk Overview Charts</h3>
+                <canvas id="riskDonutCanvas" class="chart-canvas" width="500" height="180"></canvas>
+                <div class="meta">Risk distribution donut</div>
+                <canvas id="trendCanvas" class="chart-canvas" width="500" height="180"></canvas>
+                <div class="meta">Risk score trend over recent scans</div>
+            </div>
+
+            <div class="card">
+                <h3>Risk Distribution</h3>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>High</span><span id="riskHighLabel">0</span></div>
+                    <div class="bar"><span id="riskHighBar" class="risk-bar-high"></span></div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>Medium</span><span id="riskMediumLabel">0</span></div>
+                    <div class="bar"><span id="riskMediumBar" class="risk-bar-medium"></span></div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>Low</span><span id="riskLowLabel">0</span></div>
+                    <div class="bar"><span id="riskLowBar" class="risk-bar-low"></span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Entity Totals</h3>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>National IDs</span><span id="entId">0</span></div>
+                    <div class="bar"><span id="entIdBar"></span></div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>Phone Numbers</span><span id="entPhone">0</span></div>
+                    <div class="bar"><span id="entPhoneBar"></span></div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>Emails</span><span id="entEmail">0</span></div>
+                    <div class="bar"><span id="entEmailBar"></span></div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label"><span>KRA PINs</span><span id="entKra">0</span></div>
+                    <div class="bar"><span id="entKraBar"></span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Recent Scans</h3>
+                <div id="recentScans"></div>
+            </div>
+
+            {% if user.role == "admin" %}
+            <div class="card">
+                <h3>Admin Operations</h3>
+                <button onclick="exportAudit()">Export Signed Audit</button>
+                <button onclick="runRetention()">Run Retention Cleanup</button>
+                <button onclick="runOcrDiagnostics()">OCR Diagnostics</button>
+                <pre id="adminResult"></pre>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 
 <script>
-const scanBtn = document.getElementById("scanBtn");
-const fileInput = document.getElementById("fileInput");
+function badgeClass(level) {
+    if (level === "High") return "high";
+    if (level === "Medium") return "medium";
+    if (level === "Low") return "low";
+    return "safe";
+}
 
-scanBtn.addEventListener("click", async () => {
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-    if (!fileInput.files.length) {
-        alert("Please select a document");
+function setTimelineMode(mode) {
+    const title = document.getElementById("timelineTitle");
+    const labels = [
+        "Upload Received",
+        "Extracting Content",
+        "Detecting Sensitive Data",
+        "Classifying Risk",
+        "Completed",
+    ];
+    if (mode === "protect") {
+        labels[2] = "Finding Sensitive Targets";
+        labels[3] = "Applying Protection Action";
+    }
+    if (mode === "verify") {
+        labels[1] = "Reading Original and Protected Files";
+        labels[2] = "Detecting Original Sensitive Data";
+        labels[3] = "Comparing for Potential Leaks";
+    }
+    title.textContent =
+        mode === "scan" ? "Scan Timeline" :
+        mode === "protect" ? "Protection Timeline" :
+        "Verification Timeline";
+    for (let i = 0; i < 5; i += 1) {
+        document.getElementById(`timelineLabel${i}`).textContent = labels[i];
+    }
+}
+
+function updateTimeline(stepIndex, statusText) {
+    const progressBar = document.getElementById("timelineProgressBar");
+    document.getElementById("timelineStatus").textContent = statusText;
+    const pct = Math.max(0, Math.min(100, (stepIndex / 4) * 100));
+    progressBar.style.width = `${pct}%`;
+    for (let i = 0; i < 5; i += 1) {
+        const step = document.getElementById(`timelineStep${i}`);
+        step.classList.remove("active");
+        step.classList.remove("done");
+        if (i < stepIndex) step.classList.add("done");
+        if (i === stepIndex) step.classList.add("active");
+    }
+}
+
+async function animateTimeline(mode) {
+    setTimelineMode(mode);
+    updateTimeline(0, "Upload received");
+    await sleep(180);
+    updateTimeline(1, "Extracting content");
+    await sleep(220);
+    updateTimeline(2, "Detecting sensitive entities");
+    await sleep(220);
+    updateTimeline(3, mode === "protect" ? "Applying protection action" : "Classifying risk");
+}
+
+function completeTimeline(success) {
+    updateTimeline(4, success ? "Completed successfully" : "Failed");
+}
+
+function setBarWidth(id, value, total) {
+    const pct = total > 0 ? Math.min(100, (value / total) * 100) : 0;
+    document.getElementById(id).style.width = `${pct}%`;
+}
+
+function renderSummary(summary) {
+    const docs = summary.documents_scanned || 0;
+    const entities = summary.entity_totals || {};
+    const entityTotal = (entities.national_ids || 0) + (entities.phone_numbers || 0) + (entities.emails || 0) + (entities.kra_pins || 0);
+
+    document.getElementById("kpiDocs").textContent = docs;
+    document.getElementById("kpiAvgRisk").textContent = summary.average_risk_score ?? 0;
+    document.getElementById("kpiHighRatio").textContent = `${summary.high_risk_ratio ?? 0}%`;
+    document.getElementById("kpiEntities").textContent = entityTotal;
+
+    const risks = summary.risk_distribution || {High: 0, Medium: 0, Low: 0};
+    const riskTotal = risks.High + risks.Medium + risks.Low;
+    document.getElementById("riskHighLabel").textContent = risks.High;
+    document.getElementById("riskMediumLabel").textContent = risks.Medium;
+    document.getElementById("riskLowLabel").textContent = risks.Low;
+    setBarWidth("riskHighBar", risks.High, riskTotal);
+    setBarWidth("riskMediumBar", risks.Medium, riskTotal);
+    setBarWidth("riskLowBar", risks.Low, riskTotal);
+
+    const maxEntity = Math.max(1, entities.national_ids || 0, entities.phone_numbers || 0, entities.emails || 0, entities.kra_pins || 0);
+    document.getElementById("entId").textContent = entities.national_ids || 0;
+    document.getElementById("entPhone").textContent = entities.phone_numbers || 0;
+    document.getElementById("entEmail").textContent = entities.emails || 0;
+    document.getElementById("entKra").textContent = entities.kra_pins || 0;
+    setBarWidth("entIdBar", entities.national_ids || 0, maxEntity);
+    setBarWidth("entPhoneBar", entities.phone_numbers || 0, maxEntity);
+    setBarWidth("entEmailBar", entities.emails || 0, maxEntity);
+    setBarWidth("entKraBar", entities.kra_pins || 0, maxEntity);
+    drawRiskDonut("riskDonutCanvas", risks);
+    drawTrendLine("trendCanvas", summary.trend_scores || []);
+}
+
+function drawRiskDonut(canvasId, risks) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width;
+    const h = canvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = Math.min(w, h) * 0.34;
+    const inner = radius * 0.58;
+    const total = (risks.High || 0) + (risks.Medium || 0) + (risks.Low || 0);
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    if (total === 0) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Inter";
+        ctx.textAlign = "center";
+        ctx.fillText("No risk data yet", cx, cy);
         return;
     }
 
-    const formData = new FormData();
-    formData.append("document", fileInput.files[0]);
-
-    try {
-        const response = await fetch("http://127.0.0.1:5000/api/scan-document", {
-            method: "POST",
-            body: formData
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            alert(errorData.error || "Scan failed");
-            return;
-        }
-
-        const result = await response.json();
-        updateDashboard(result);
-
-    } catch (error) {
-        console.error("Scan error:", error);
-        alert("Backend server not reachable.");
-    }
-});
-
-function updateDashboard(data) {
-    document.getElementById("complianceScore").innerText = data.complianceScore + "%";
-
-    const riskEl = document.getElementById("riskLevel");
-    riskEl.innerText = data.riskLevel;
-    riskEl.className = "stat-value " + data.riskLevel.toLowerCase();
-
-    const issuesEl = document.getElementById("issuesFound");
-    if(data.issuesFound.length === 0){
-        issuesEl.innerText = "0";
-    } else {
-        issuesEl.innerText = data.issuesFound.length;
-    }
-
-    document.getElementById("scanStatus").innerText = data.status;
-
-    // Recommendations
-    const recList = document.getElementById("recommendationsList");
-    recList.innerHTML = "";
-    data.recommendations.forEach(rec => {
-        const li = document.createElement("li");
-        li.innerText = rec;
-        recList.appendChild(li);
+    const segments = [
+        {key: "High", value: risks.High || 0, color: "#dc2626"},
+        {key: "Medium", value: risks.Medium || 0, color: "#f59e0b"},
+        {key: "Low", value: risks.Low || 0, color: "#22c55e"},
+    ];
+    let start = -Math.PI / 2;
+    segments.forEach(seg => {
+        const angle = (seg.value / total) * Math.PI * 2;
+        if (angle <= 0) return;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, start, start + angle);
+        ctx.closePath();
+        ctx.fillStyle = seg.color;
+        ctx.fill();
+        start += angle;
     });
 
-    // Add to recent scans table
-    const table = document.getElementById("recentScansTable");
-    const row = document.createElement("tr");
-    row.innerHTML = `
-        <td>${data.filename}</td>
-        <td>${data.complianceScore}%</td>
-        <td>${data.riskLevel}</td>
-        <td>${data.issuesFound.length}</td>
-        <td>${new Date(data.scannedAt).toLocaleString()}</td>
-    `;
-    table.prepend(row);
-}
-</script>
+    ctx.beginPath();
+    ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
 
+    ctx.fillStyle = "#1f2937";
+    ctx.font = "bold 16px Inter";
+    ctx.textAlign = "center";
+    ctx.fillText(`${total} scans`, cx, cy + 4);
+}
+
+function drawTrendLine(canvasId, scores) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width;
+    const h = canvas.height;
+    const pad = 28;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+
+    // axes
+    ctx.strokeStyle = "#d1d5db";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, pad);
+    ctx.lineTo(pad, h - pad);
+    ctx.lineTo(w - pad, h - pad);
+    ctx.stroke();
+
+    if (!scores.length) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Inter";
+        ctx.fillText("No trend data yet", w / 2 - 45, h / 2);
+        return;
+    }
+
+    const max = 100;
+    const min = 0;
+    const xStep = scores.length > 1 ? (w - pad * 2) / (scores.length - 1) : 0;
+    ctx.strokeStyle = "#1e3a8a";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    scores.forEach((v, i) => {
+        const x = pad + i * xStep;
+        const y = h - pad - ((v - min) / (max - min)) * (h - pad * 2);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+}
+
+function bindDropzone(dropzoneId, inputId, pillId) {
+    const dropzone = document.getElementById(dropzoneId);
+    const input = document.getElementById(inputId);
+    const pill = document.getElementById(pillId);
+    if (!dropzone || !input || !pill) return;
+
+    const updatePill = () => {
+        const file = input.files && input.files[0];
+        pill.textContent = file ? `Selected: ${file.name}` : `No ${inputId.includes("scan") ? "scan" : "protect"} file selected`;
+    };
+
+    input.addEventListener("change", updatePill);
+    ["dragenter", "dragover"].forEach(evt => {
+        dropzone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropzone.classList.add("dragover");
+        });
+    });
+    ["dragleave", "drop"].forEach(evt => {
+        dropzone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropzone.classList.remove("dragover");
+        });
+    });
+    dropzone.addEventListener("drop", e => {
+        const files = e.dataTransfer.files;
+        if (!files || !files.length) return;
+        const dt = new DataTransfer();
+        dt.items.add(files[0]);
+        input.files = dt.files;
+        updatePill();
+    });
+}
+
+async function scanFile() {
+    const file = document.getElementById("scanFile").files[0];
+    if (!file) {
+        alert("Select a file to scan.");
+        return;
+    }
+    const btn = document.getElementById("scanBtn");
+    btn.disabled = true;
+    btn.textContent = "Scanning...";
+
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+        await animateTimeline("scan");
+        const res = await fetch("/scan", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Scan failed");
+
+        const scanResults = document.getElementById("scanResults");
+        scanResults.hidden = false;
+        scanResults.style.display = "block";
+        document.getElementById("riskContainer").innerHTML =
+            `<span class="badge ${badgeClass(data.risk_level)}">${data.risk_level} RISK</span>`;
+        document.getElementById("riskScore").textContent = `Risk Score: ${data.risk_score}/100`;
+        document.getElementById("riskInsights").innerHTML = data.insights.map(i => `- ${i}`).join("<br>");
+
+        let findingsHtml = "";
+        for (const key in data.findings) {
+            const entries = data.findings[key] || [];
+            if (!entries.length) continue;
+            const items = entries.map(entry => `<li>${entry.value} (confidence: ${Number(entry.confidence).toFixed(2)})</li>`).join("");
+            findingsHtml += `<div class="result-block"><strong>${key}</strong><ul>${items}</ul></div>`;
+        }
+        document.getElementById("findings").innerHTML = findingsHtml || "<div>No sensitive data found.</div>";
+        document.getElementById("extractedPreview").textContent = data.extracted_preview || "(no extracted text)";
+        loadRecentScans();
+        completeTimeline(true);
+    } catch (error) {
+        completeTimeline(false);
+        alert(error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Scan";
+    }
+}
+
+async function protectFile() {
+    const file = document.getElementById("protectFile").files[0];
+    const action = document.getElementById("protectAction").value;
+    if (!file) {
+        alert("Select a file to protect.");
+        return;
+    }
+    const btn = document.getElementById("protectBtn");
+    btn.disabled = true;
+    btn.textContent = "Processing...";
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("action", action);
+
+    try {
+        await animateTimeline("protect");
+        const res = await fetch("/protect", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Protection failed");
+
+        const protectResults = document.getElementById("protectResults");
+        protectResults.hidden = false;
+        protectResults.style.display = "block";
+        document.getElementById("protectMeta").innerHTML =
+            `Action: <strong>${data.action}</strong> | Output: <strong>${data.output_file}</strong>` +
+            (data.key_file ? ` | Key: <strong>${data.key_file}</strong>` : "");
+
+        if (data.quality) {
+            const statusClass = data.quality.quality_status === "PASS" ? "ok" : "fail";
+            document.getElementById("qualityMeta").innerHTML =
+                `Redaction Quality: <span class="${statusClass}">${data.quality.quality_status}</span> | Coverage: ${data.quality.coverage_percent}% | Leaks: ${data.quality.leak_count}`;
+        } else {
+            document.getElementById("qualityMeta").textContent = "Quality metrics are available for redaction actions.";
+        }
+        document.getElementById("protectPreview").textContent = data.preview || "";
+        completeTimeline(true);
+    } catch (error) {
+        completeTimeline(false);
+        alert(error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Protect";
+    }
+}
+
+async function verifyRedaction() {
+    const original = document.getElementById("originalFile").files[0];
+    const protectedFile = document.getElementById("protectedFile").files[0];
+    if (!original || !protectedFile) {
+        alert("Upload both original and protected files.");
+        return;
+    }
+    const btn = document.getElementById("verifyBtn");
+    btn.disabled = true;
+    btn.textContent = "Verifying...";
+
+    const formData = new FormData();
+    formData.append("original", original);
+    formData.append("protected", protectedFile);
+
+    try {
+        await animateTimeline("verify");
+        const res = await fetch("/verify-redaction", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Verification failed");
+
+        const verifyResults = document.getElementById("verifyResults");
+        verifyResults.hidden = false;
+        verifyResults.style.display = "block";
+        const statusClass = data.quality_status === "PASS" ? "ok" : "fail";
+        document.getElementById("verifyMeta").innerHTML =
+            `Status: <span class="${statusClass}">${data.quality_status}</span> | Coverage: ${data.coverage_percent}% | Leaks: ${data.leak_count}/${data.total_sensitive_items}`;
+        document.getElementById("verifyLeaks").textContent = JSON.stringify(data.leaked_items, null, 2);
+        completeTimeline(true);
+    } catch (error) {
+        completeTimeline(false);
+        alert(error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Verify";
+    }
+}
+
+async function loadRecentScans() {
+    const response = await fetch("/api/dashboard-data");
+    if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+    }
+    const data = await response.json();
+    renderSummary(data.summary || {});
+    const html = (data.recent_scans || []).map(scan =>
+        `<div class="recent-row"><strong>${scan.filename}</strong> <span class="badge ${badgeClass(scan.risk_level)}">${scan.risk_level} (${scan.risk_score}/100)</span></div>`
+    ).join("");
+    document.getElementById("recentScans").innerHTML = html || "<div class='meta'>No scans yet.</div>";
+}
+
+async function logout() {
+    await fetch("/logout", { method: "POST" });
+    window.location.href = "/login";
+}
+
+async function exportAudit() {
+    const res = await fetch("/admin/export-audit", { method: "POST" });
+    const data = await res.json();
+    document.getElementById("adminResult").textContent = JSON.stringify(data, null, 2);
+}
+
+async function runRetention() {
+    const res = await fetch("/admin/retention-cleanup", { method: "POST" });
+    const data = await res.json();
+    document.getElementById("adminResult").textContent = JSON.stringify(data, null, 2);
+}
+
+async function runOcrDiagnostics() {
+    const res = await fetch("/admin/ocr-diagnostics", { method: "POST" });
+    const data = await res.json();
+    document.getElementById("adminResult").textContent = JSON.stringify(data, null, 2);
+}
+
+window.onload = loadRecentScans;
+bindDropzone("scanDropzone", "scanFile", "scanFilePill");
+document.getElementById("protectFile").addEventListener("change", () => {
+    const file = document.getElementById("protectFile").files[0];
+    document.getElementById("protectFilePill").textContent = file
+        ? `Selected: ${file.name}`
+        : "No protect file selected";
+});
+setTimelineMode("scan");
+updateTimeline(0, "Idle");
+</script>
+</div>
 </body>
 </html>

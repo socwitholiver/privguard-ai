@@ -1,0 +1,6 @@
+{
+  "national_ids": ["12345678"],
+  "phone_numbers": ["+254712345678"],
+  "emails": ["guardian@example.org"],
+  "kra_pins": ["A123456789B"]
+}

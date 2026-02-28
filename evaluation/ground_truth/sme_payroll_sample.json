@@ -1,0 +1,6 @@
+{
+  "national_ids": ["23456789", "34567891"],
+  "phone_numbers": ["0712345678", "0112345678"],
+  "emails": ["john.placeholder@example.com", "mary.placeholder@example.com"],
+  "kra_pins": ["P987654321Q", "Z123456789T"]
+}

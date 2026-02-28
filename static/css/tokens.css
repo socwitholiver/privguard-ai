@@ -1,0 +1,35 @@
+:root {
+  /* Brand */
+  --pg-primary: #1e3a8a;
+  --pg-secondary: #10b981;
+  --pg-accent: #06b6d4;
+
+  /* Risk */
+  --pg-risk-low: #22c55e;
+  --pg-risk-medium: #f59e0b;
+  --pg-risk-high: #dc2626;
+
+  /* Surface + text */
+  --pg-bg: #ffffff;
+  --pg-surface: #f3f4f6;
+  --pg-card: #ffffff;
+  --pg-border: #d1d5db;
+  --pg-text: #111827;
+  --pg-text-muted: #4b5563;
+
+  /* Layout scale */
+  --pg-s1: 4px;
+  --pg-s2: 8px;
+  --pg-s3: 12px;
+  --pg-s4: 16px;
+  --pg-s5: 24px;
+  --pg-s6: 32px;
+
+  --pg-r-input: 8px;
+  --pg-r-btn: 10px;
+  --pg-r-card: 12px;
+  --pg-r-pill: 999px;
+
+  --pg-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --pg-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+}

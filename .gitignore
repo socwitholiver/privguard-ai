@@ -24,3 +24,13 @@ __pycache__/
 # OS-specific files
 Thumbs.db
 .DS_Store
+
+# Local runtime data
+uploads/
+outputs/
+keys/
+instance/
+exports/
+pilot/evidence_pack_*/
+pilot/evidence_pack_*.zip
+reports/scan_sample.json
