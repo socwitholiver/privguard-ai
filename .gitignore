@@ -24,3 +24,9 @@ __pycache__/
 # OS-specific files
 Thumbs.db
 .DS_Store
+
+# Local runtime data
+uploads/
+outputs/
+keys/
+instance/

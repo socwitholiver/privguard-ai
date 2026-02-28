@@ -1,0 +1,9 @@
+School Admission Form (Sample - Placeholder Data)
+
+Student Name: Jane Example
+National ID Number: 12345678
+Parent Phone: +254712345678
+Parent Email: guardian@example.org
+KRA PIN: A123456789B
+
+This file is a synthetic demo document for testing PRIVGUARD AI.

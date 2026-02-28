@@ -1,155 +1,161 @@
 import os
-import re
-import random
-from datetime import datetime
-from flask import Flask, request, jsonify, render_template
-from flask_cors import CORS
+from pathlib import Path
 
-# File parsing
-import pdfplumber
-import docx
-import openpyxl
-from PIL import Image
-import pytesseract
+from flask import Flask, jsonify, render_template, request
+from werkzeug.utils import secure_filename
 
-UPLOAD_FOLDER = "uploads"
-ALLOWED_EXTENSIONS = {"pdf", "docx", "txt", "xlsx", "csv", "png", "jpg", "jpeg"}
+from classification import build_risk_summary
+from detection import detect_sensitive_data
+from extraction import read_document_text
+from protection import encrypt_text, generate_encryption_key, redact_text, verify_redaction_quality
 
 app = Flask(__name__)
-CORS(app)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+UPLOAD_FOLDER = "uploads"
+OUTPUT_FOLDER = "outputs"
+KEY_FOLDER = "keys"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+os.makedirs(KEY_FOLDER, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# ----------------------------
-# Helper Functions
-# ----------------------------
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+# In-memory scan history (last 10 only)
+scan_history = []
 
-def extract_text(file_path):
-    ext = file_path.rsplit(".",1)[1].lower()
-    text = ""
 
-    try:
-        if ext == "txt":
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                text = f.read()
-        elif ext == "pdf":
-            with pdfplumber.open(file_path) as pdf:
-                for page in pdf.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
-        elif ext == "docx":
-            doc = docx.Document(file_path)
-            for para in doc.paragraphs:
-                text += para.text + "\n"
-        elif ext in ["xlsx", "csv"]:
-            wb = openpyxl.load_workbook(file_path) if ext=="xlsx" else None
-            if wb:
-                for sheet in wb.worksheets:
-                    for row in sheet.iter_rows(values_only=True):
-                        text += " ".join([str(cell) for cell in row if cell]) + "\n"
-        elif ext in ["png","jpg","jpeg"]:
-            img = Image.open(file_path)
-            text = pytesseract.image_to_string(img)
-    except Exception as e:
-        text += f"\n[Error extracting text: {str(e)}]"
+def _save_upload(file_obj, destination_dir: str) -> Path:
+    filename = secure_filename(file_obj.filename)
+    filepath = Path(destination_dir) / filename
+    file_obj.save(str(filepath))
+    return filepath
 
-    return text
 
-def detect_sensitive_data(text):
-    issues = []
-
-    # Emails
-    emails = re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", text)
-    if emails: issues.append(f"Emails found: {len(emails)}")
-
-    # Phone numbers
-    phones = re.findall(r"\+?\d[\d\s-]{7,}\d", text)
-    if phones: issues.append(f"Phone numbers found: {len(phones)}")
-
-    # Credit cards
-    cards = re.findall(r"\b(?:\d[ -]*?){13,16}\b", text)
-    if cards: issues.append(f"Credit cards found: {len(cards)}")
-
-    # IDs
-    ids = re.findall(r"\b\d{6,12}\b", text)
-    if ids: issues.append(f"IDs found: {len(ids)}")
-
-    # API Keys
-    apis = re.findall(r"(?i)api[_-]?key[=:]\w+", text)
-    if apis: issues.append(f"API keys found: {len(apis)}")
-
-    return issues
-
-def generate_risk_score(issues):
-    base = 100
-    deduction = len(issues)*15
-    score = max(0, base-deduction)
-    level = "Low" if score>70 else "Medium" if score>40 else "High"
-    return score, level
-
-def generate_recommendations(issues):
-    recs=[]
-    if not issues:
-        recs.append("No sensitive data detected. Maintain security policies.")
-    else:
-        if any("Email" in i for i in issues):
-            recs.append("Redact or encrypt emails before sharing files.")
-        if any("Phone" in i for i in issues):
-            recs.append("Remove or encrypt phone numbers.")
-        if any("Credit" in i for i in issues):
-            recs.append("Encrypt files containing financial data.")
-        if any("ID" in i for i in issues):
-            recs.append("Mask or remove IDs from shared documents.")
-        if any("API" in i for i in issues):
-            recs.append("Rotate API keys and store securely.")
-    return recs
-
-# ----------------------------
-# Routes
-# ----------------------------
 @app.route("/")
+def home():
+    return render_template("dashboard.html")
+
+
+@app.route("/dashboard")
 def dashboard():
     return render_template("dashboard.html")
 
-@app.route("/api/scan-document", methods=["POST"])
-def scan_document():
-    if "document" not in request.files:
-        return jsonify({"error":"No document uploaded"}),400
-    file = request.files["document"]
-    if file.filename=="":
-        return jsonify({"error":"No file selected"}),400
-    if not allowed_file(file.filename):
-        return jsonify({"error":"File type not allowed"}),400
 
-    filename = f"{int(datetime.now().timestamp())}_{file.filename}"
-    file_path = os.path.join(app.config["UPLOAD_FOLDER"],filename)
-    file.save(file_path)
+@app.route("/api/dashboard-data")
+def dashboard_data():
+    return jsonify({"recent_scans": scan_history})
 
-    text = extract_text(file_path)
-    issues = detect_sensitive_data(text)
-    risk_score, risk_level = generate_risk_score(issues)
-    recommendations = generate_recommendations(issues)
 
-    response={
-        "filename":file.filename,
-        "scannedAt":datetime.now().isoformat(),
-        "issuesFound":issues,
-        "complianceScore":risk_score,
-        "riskLevel":risk_level,
-        "recommendations":recommendations,
-        "status":"Completed"
-    }
-    return jsonify(response)
+@app.route("/scan", methods=["POST"])
+def scan():
+    global scan_history
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
 
-@app.route("/health")
-def health_check():
-    return jsonify({"message":"PrivGuard AI Backend Running"})
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
 
-# ----------------------------
-# Run server
-# ----------------------------
-if __name__=="__main__":
-    app.run(debug=True,port=5000)
+    try:
+        path = _save_upload(file, app.config["UPLOAD_FOLDER"])
+        extracted_text = read_document_text(path)
+        findings = detect_sensitive_data(extracted_text)
+        risk = build_risk_summary(findings)
+
+        scan_entry = {
+            "filename": path.name,
+            "risk_level": risk["level"],
+            "risk_score": risk["score"],
+        }
+        scan_history.insert(0, scan_entry)
+        scan_history = scan_history[:10]
+
+        return jsonify(
+            {
+                "filename": path.name,
+                "findings": findings,
+                "risk_score": risk["score"],
+                "risk_level": risk["level"],
+                "counts": risk["counts"],
+                "insights": risk["insights"],
+                "extracted_preview": extracted_text[:700],
+            }
+        )
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/protect", methods=["POST"])
+def protect():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    action = request.form.get("action", "").strip().lower()
+    if action not in {"redact", "encrypt"}:
+        return jsonify({"error": "Action must be redact or encrypt"}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
+
+    try:
+        path = _save_upload(file, app.config["UPLOAD_FOLDER"])
+        source_text = read_document_text(path)
+        findings = detect_sensitive_data(source_text)
+
+        if action == "redact":
+            protected = redact_text(source_text, findings)
+            out_path = Path(OUTPUT_FOLDER) / f"{path.stem}.redacted.txt"
+            out_path.write_text(protected, encoding="utf-8")
+            quality = verify_redaction_quality(findings, protected)
+            return jsonify(
+                {
+                    "action": "redact",
+                    "output_file": str(out_path),
+                    "quality": quality,
+                    "preview": protected[:700],
+                }
+            )
+
+        key = generate_encryption_key()
+        key_path = Path(KEY_FOLDER) / f"{path.stem}.key"
+        key_path.write_bytes(key)
+        encrypted = encrypt_text(source_text, key)
+        out_path = Path(OUTPUT_FOLDER) / f"{path.stem}.encrypted.txt"
+        out_path.write_text(encrypted, encoding="utf-8")
+        return jsonify(
+            {
+                "action": "encrypt",
+                "output_file": str(out_path),
+                "key_file": str(key_path),
+                "preview": encrypted[:220],
+            }
+        )
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/verify-redaction", methods=["POST"])
+def verify_redaction():
+    if "original" not in request.files or "protected" not in request.files:
+        return jsonify({"error": "Upload both original and protected files"}), 400
+
+    original = request.files["original"]
+    protected = request.files["protected"]
+    if original.filename == "" or protected.filename == "":
+        return jsonify({"error": "Both files must have valid names"}), 400
+
+    try:
+        original_path = _save_upload(original, app.config["UPLOAD_FOLDER"])
+        protected_path = _save_upload(protected, app.config["UPLOAD_FOLDER"])
+
+        original_text = read_document_text(original_path)
+        protected_text = read_document_text(protected_path)
+        original_findings = detect_sensitive_data(original_text)
+        quality = verify_redaction_quality(original_findings, protected_text)
+        return jsonify(quality)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+if __name__ == "__main__":
+    app.run(debug=True)

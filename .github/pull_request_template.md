@@ -1,16 +1,21 @@
 ## Summary
-Describe what this PR changes.
+Describe what this PR changes and why.
+
+## Related Issue
+Closes #
 
 ## Security Impact
 - [ ] No sensitive data exposure
 - [ ] Input validation considered
 - [ ] Logging reviewed
+- [ ] Secrets and keys are not committed
 
-## Testing
-- [ ] Tests added
-- [ ] Tests passing
+## Test Plan
+- [ ] Unit tests added/updated
+- [ ] Existing tests pass locally
+- [ ] Manual verification completed
 
-## Checklist
-- [ ] Code reviewed
-- [ ] Comments added
-- [ ] Issue linked
+## Reviewer Checklist
+- [ ] Behavior/regression risk assessed
+- [ ] Edge cases considered
+- [ ] Compliance impact reviewed (DPA 2019 where relevant)

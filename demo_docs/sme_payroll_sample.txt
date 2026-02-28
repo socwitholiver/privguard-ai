@@ -1,0 +1,15 @@
+SME Payroll Extract (Sample - Placeholder Data)
+
+Employee: John Placeholder
+National ID: 23456789
+Contact Phone: 0712345678
+Email: john.placeholder@example.com
+Tax PIN: P987654321Q
+
+Employee: Mary Placeholder
+National ID: 34567891
+Phone: 0112345678
+Email Address: mary.placeholder@example.com
+KRA PIN: Z123456789T
+
+This sample uses fake values only.
