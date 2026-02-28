@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import re
 from pathlib import Path
 from typing import Dict, List, Set
 
@@ -94,7 +95,9 @@ def verify_redaction_quality(
     for data_type, entries in original_findings.items():
         for entry in entries:
             value = str(entry.get("value", ""))
-            if value and value in protected_text:
+            # Use token-aware matching to avoid false positives from substrings.
+            pattern = re.compile(rf"(?<!\w){re.escape(value)}(?!\w)")
+            if value and pattern.search(protected_text):
                 leaked.append({"data_type": data_type, "value": value})
 
     total_items = sum(len(items) for items in original_findings.values())

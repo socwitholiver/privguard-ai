@@ -49,3 +49,18 @@ def test_verify_redaction_quality_pass_and_fail():
     assert ok_report["leak_count"] == 0
     assert bad_report["quality_status"] == "FAIL"
     assert bad_report["leak_count"] == 1
+
+
+def test_verify_redaction_quality_ignores_numeric_substring_overlap():
+    original_findings = {
+        "national_ids": [{"value": "12345678"}],
+        "phone_numbers": [{"value": "0712345678"}],
+        "emails": [],
+        "kra_pins": [],
+    }
+    protected_text = "Phone remains exposed: 0712345678, ID already redacted."
+
+    report = verify_redaction_quality(original_findings, protected_text)
+    assert report["quality_status"] == "FAIL"
+    assert report["leak_count"] == 1
+    assert report["leaked_items"][0]["data_type"] == "phone_numbers"
