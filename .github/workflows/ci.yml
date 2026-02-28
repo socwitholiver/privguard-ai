@@ -25,5 +25,7 @@ jobs:
           pip install pytest
 
       - name: Run MVP tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          pytest -q tests/test_mvp_detection.py tests/test_mvp_classification.py tests/test_mvp_protection.py
+          python -m pytest -q tests/test_mvp_detection.py tests/test_mvp_classification.py tests/test_mvp_protection.py
