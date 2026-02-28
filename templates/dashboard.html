@@ -2,165 +2,15 @@
 <html>
 <head>
     <title>PRIVGUARD AI - Operations Dashboard</title>
-    <style>
-        :root {
-            --bg: #0b1220;
-            --card: #121c2f;
-            --muted: #9fb0cf;
-            --line: #263754;
-            --primary: #3b82f6;
-            --high: #ef4444;
-            --medium: #f59e0b;
-            --low: #22c55e;
-            --text: #e5edff;
-        }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            padding: 22px;
-            font-family: "Segoe UI", sans-serif;
-            background: linear-gradient(180deg, #0b1220 0%, #0d1528 100%);
-            color: var(--text);
-        }
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        .subtitle { color: var(--muted); margin-top: 4px; }
-        .chip {
-            padding: 8px 12px;
-            border: 1px solid var(--line);
-            border-radius: 999px;
-            color: var(--muted);
-            background: #0f1a30;
-        }
-        .layout {
-            display: grid;
-            grid-template-columns: 1.3fr 1fr;
-            gap: 14px;
-        }
-        .card {
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 14px;
-        }
-        .cards4 {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-bottom: 14px;
-        }
-        .kpi-title { color: var(--muted); font-size: 12px; }
-        .kpi-value { font-size: 26px; font-weight: 700; margin-top: 4px; }
-        .kpi-sub { font-size: 12px; color: var(--muted); }
-        .split2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .bar-wrap { margin-bottom: 8px; }
-        .bar-label {
-            display: flex;
-            justify-content: space-between;
-            color: var(--muted);
-            font-size: 13px;
-            margin-bottom: 4px;
-        }
-        .bar {
-            width: 100%;
-            height: 8px;
-            border-radius: 999px;
-            background: #0d172c;
-            overflow: hidden;
-        }
-        .bar > span {
-            height: 100%;
-            display: block;
-            background: var(--primary);
-        }
-        .actions-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-        }
-        label {
-            display: block;
-            color: var(--muted);
-            font-size: 13px;
-            margin-bottom: 5px;
-        }
-        input[type="file"], select {
-            width: 100%;
-            padding: 9px;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: #0f1a30;
-            color: var(--text);
-        }
-        button {
-            margin-top: 10px;
-            margin-right: 8px;
-            border: none;
-            background: var(--primary);
-            color: white;
-            border-radius: 8px;
-            padding: 9px 13px;
-            font-weight: 700;
-            cursor: pointer;
-        }
-        button:disabled { background: #4b5d82; cursor: not-allowed; }
-        .btn-muted { background: #475569; }
-        .badge {
-            display: inline-block;
-            padding: 6px 10px;
-            border-radius: 999px;
-            font-weight: 700;
-            font-size: 12px;
-        }
-        .high { background: #4b1f22; color: #fecaca; }
-        .medium { background: #4a3618; color: #fde68a; }
-        .low { background: #1b4431; color: #bbf7d0; }
-        .safe { background: #1f3f5b; color: #bfdbfe; }
-        .result-block {
-            margin-top: 8px;
-            padding: 10px;
-            background: #0f1a30;
-            border-radius: 8px;
-            border: 1px solid var(--line);
-        }
-        .meta { color: var(--muted); font-size: 13px; margin-top: 6px; }
-        pre {
-            background: #071023;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 8px;
-            white-space: pre-wrap;
-            max-height: 210px;
-            overflow: auto;
-            color: #c7d7f7;
-        }
-        .ok { color: var(--low); font-weight: 700; }
-        .fail { color: var(--high); font-weight: 700; }
-        .recent-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px dashed var(--line);
-        }
-        .recent-row:last-child { border-bottom: none; }
-        @media (max-width: 1100px) {
-            .layout { grid-template-columns: 1fr; }
-            .cards4 { grid-template-columns: 1fr 1fr; }
-            .actions-grid { grid-template-columns: 1fr; }
-            .split2 { grid-template-columns: 1fr; }
-        }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Roboto:wght@500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/privguard-dashboard.css">
 </head>
 <body>
+<div class="pg-shell">
     <div class="topbar">
         <div>
             <h1>PRIVGUARD AI</h1>
@@ -199,6 +49,11 @@
         <div>
             <div class="card">
                 <h3>Workflow Actions</h3>
+                <div id="scanDropzone" class="upload-dropzone">
+                    <div class="upload-dropzone-title">Drag and drop a document to scan</div>
+                    <div class="upload-dropzone-sub">or use the file pickers below</div>
+                    <div id="scanFilePill" class="file-pill">No scan file selected</div>
+                </div>
                 <div class="actions-grid">
                     <div>
                         <label for="scanFile">Scan File (.txt / image)</label>
@@ -207,6 +62,7 @@
                     <div>
                         <label for="protectFile">Protect File (.txt / image)</label>
                         <input id="protectFile" type="file">
+                        <div id="protectFilePill" class="file-pill">No protect file selected</div>
                     </div>
                     <div>
                         <label for="protectAction">Protection Action</label>
@@ -237,7 +93,24 @@
                 </div>
             </div>
 
-            <div class="card" id="scanResults" style="display:none;">
+            <div class="card" id="processTimelineCard">
+                <div class="timeline">
+                    <div class="timeline-header">
+                        <div class="timeline-title" id="timelineTitle">Processing Timeline</div>
+                        <div class="timeline-status" id="timelineStatus">Idle</div>
+                    </div>
+                    <div class="timeline-progress"><span id="timelineProgressBar"></span></div>
+                    <ul class="timeline-steps">
+                        <li id="timelineStep0" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel0">Upload Received</span></li>
+                        <li id="timelineStep1" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel1">Extracting Content</span></li>
+                        <li id="timelineStep2" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel2">Detecting Sensitive Data</span></li>
+                        <li id="timelineStep3" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel3">Classifying Risk</span></li>
+                        <li id="timelineStep4" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel4">Completed</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card" id="scanResults" hidden>
                 <h3>Scan Results</h3>
                 <div id="riskContainer"></div>
                 <div class="meta" id="riskScore"></div>
@@ -252,14 +125,14 @@
                 </div>
             </div>
 
-            <div class="card" id="protectResults" style="display:none;">
+            <div class="card" id="protectResults" hidden>
                 <h3>Protection Results</h3>
                 <div class="meta" id="protectMeta"></div>
                 <div class="meta" id="qualityMeta"></div>
                 <pre id="protectPreview"></pre>
             </div>
 
-            <div class="card" id="verifyResults" style="display:none;">
+            <div class="card" id="verifyResults" hidden>
                 <h3>Redaction Verification</h3>
                 <div id="verifyMeta"></div>
                 <pre id="verifyLeaks"></pre>
@@ -268,18 +141,26 @@
 
         <div>
             <div class="card">
+                <h3>Risk Overview Charts</h3>
+                <canvas id="riskDonutCanvas" class="chart-canvas" width="500" height="180"></canvas>
+                <div class="meta">Risk distribution donut</div>
+                <canvas id="trendCanvas" class="chart-canvas" width="500" height="180"></canvas>
+                <div class="meta">Risk score trend over recent scans</div>
+            </div>
+
+            <div class="card">
                 <h3>Risk Distribution</h3>
                 <div class="bar-wrap">
                     <div class="bar-label"><span>High</span><span id="riskHighLabel">0</span></div>
-                    <div class="bar"><span id="riskHighBar" style="width:0%;background:var(--high)"></span></div>
+                    <div class="bar"><span id="riskHighBar" class="risk-bar-high"></span></div>
                 </div>
                 <div class="bar-wrap">
                     <div class="bar-label"><span>Medium</span><span id="riskMediumLabel">0</span></div>
-                    <div class="bar"><span id="riskMediumBar" style="width:0%;background:var(--medium)"></span></div>
+                    <div class="bar"><span id="riskMediumBar" class="risk-bar-medium"></span></div>
                 </div>
                 <div class="bar-wrap">
                     <div class="bar-label"><span>Low</span><span id="riskLowLabel">0</span></div>
-                    <div class="bar"><span id="riskLowBar" style="width:0%;background:var(--low)"></span></div>
+                    <div class="bar"><span id="riskLowBar" class="risk-bar-low"></span></div>
                 </div>
             </div>
 
@@ -287,19 +168,19 @@
                 <h3>Entity Totals</h3>
                 <div class="bar-wrap">
                     <div class="bar-label"><span>National IDs</span><span id="entId">0</span></div>
-                    <div class="bar"><span id="entIdBar" style="width:0%"></span></div>
+                    <div class="bar"><span id="entIdBar"></span></div>
                 </div>
                 <div class="bar-wrap">
                     <div class="bar-label"><span>Phone Numbers</span><span id="entPhone">0</span></div>
-                    <div class="bar"><span id="entPhoneBar" style="width:0%"></span></div>
+                    <div class="bar"><span id="entPhoneBar"></span></div>
                 </div>
                 <div class="bar-wrap">
                     <div class="bar-label"><span>Emails</span><span id="entEmail">0</span></div>
-                    <div class="bar"><span id="entEmailBar" style="width:0%"></span></div>
+                    <div class="bar"><span id="entEmailBar"></span></div>
                 </div>
                 <div class="bar-wrap">
                     <div class="bar-label"><span>KRA PINs</span><span id="entKra">0</span></div>
-                    <div class="bar"><span id="entKraBar" style="width:0%"></span></div>
+                    <div class="bar"><span id="entKraBar"></span></div>
                 </div>
             </div>
 
@@ -326,6 +207,66 @@ function badgeClass(level) {
     if (level === "Medium") return "medium";
     if (level === "Low") return "low";
     return "safe";
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function setTimelineMode(mode) {
+    const title = document.getElementById("timelineTitle");
+    const labels = [
+        "Upload Received",
+        "Extracting Content",
+        "Detecting Sensitive Data",
+        "Classifying Risk",
+        "Completed",
+    ];
+    if (mode === "protect") {
+        labels[2] = "Finding Sensitive Targets";
+        labels[3] = "Applying Protection Action";
+    }
+    if (mode === "verify") {
+        labels[1] = "Reading Original and Protected Files";
+        labels[2] = "Detecting Original Sensitive Data";
+        labels[3] = "Comparing for Potential Leaks";
+    }
+    title.textContent =
+        mode === "scan" ? "Scan Timeline" :
+        mode === "protect" ? "Protection Timeline" :
+        "Verification Timeline";
+    for (let i = 0; i < 5; i += 1) {
+        document.getElementById(`timelineLabel${i}`).textContent = labels[i];
+    }
+}
+
+function updateTimeline(stepIndex, statusText) {
+    const progressBar = document.getElementById("timelineProgressBar");
+    document.getElementById("timelineStatus").textContent = statusText;
+    const pct = Math.max(0, Math.min(100, (stepIndex / 4) * 100));
+    progressBar.style.width = `${pct}%`;
+    for (let i = 0; i < 5; i += 1) {
+        const step = document.getElementById(`timelineStep${i}`);
+        step.classList.remove("active");
+        step.classList.remove("done");
+        if (i < stepIndex) step.classList.add("done");
+        if (i === stepIndex) step.classList.add("active");
+    }
+}
+
+async function animateTimeline(mode) {
+    setTimelineMode(mode);
+    updateTimeline(0, "Upload received");
+    await sleep(180);
+    updateTimeline(1, "Extracting content");
+    await sleep(220);
+    updateTimeline(2, "Detecting sensitive entities");
+    await sleep(220);
+    updateTimeline(3, mode === "protect" ? "Applying protection action" : "Classifying risk");
+}
+
+function completeTimeline(success) {
+    updateTimeline(4, success ? "Completed successfully" : "Failed");
 }
 
 function setBarWidth(id, value, total) {
@@ -361,6 +302,137 @@ function renderSummary(summary) {
     setBarWidth("entPhoneBar", entities.phone_numbers || 0, maxEntity);
     setBarWidth("entEmailBar", entities.emails || 0, maxEntity);
     setBarWidth("entKraBar", entities.kra_pins || 0, maxEntity);
+    drawRiskDonut("riskDonutCanvas", risks);
+    drawTrendLine("trendCanvas", summary.trend_scores || []);
+}
+
+function drawRiskDonut(canvasId, risks) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width;
+    const h = canvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = Math.min(w, h) * 0.34;
+    const inner = radius * 0.58;
+    const total = (risks.High || 0) + (risks.Medium || 0) + (risks.Low || 0);
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    if (total === 0) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Inter";
+        ctx.textAlign = "center";
+        ctx.fillText("No risk data yet", cx, cy);
+        return;
+    }
+
+    const segments = [
+        {key: "High", value: risks.High || 0, color: "#dc2626"},
+        {key: "Medium", value: risks.Medium || 0, color: "#f59e0b"},
+        {key: "Low", value: risks.Low || 0, color: "#22c55e"},
+    ];
+    let start = -Math.PI / 2;
+    segments.forEach(seg => {
+        const angle = (seg.value / total) * Math.PI * 2;
+        if (angle <= 0) return;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, start, start + angle);
+        ctx.closePath();
+        ctx.fillStyle = seg.color;
+        ctx.fill();
+        start += angle;
+    });
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+
+    ctx.fillStyle = "#1f2937";
+    ctx.font = "bold 16px Inter";
+    ctx.textAlign = "center";
+    ctx.fillText(`${total} scans`, cx, cy + 4);
+}
+
+function drawTrendLine(canvasId, scores) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width;
+    const h = canvas.height;
+    const pad = 28;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+
+    // axes
+    ctx.strokeStyle = "#d1d5db";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, pad);
+    ctx.lineTo(pad, h - pad);
+    ctx.lineTo(w - pad, h - pad);
+    ctx.stroke();
+
+    if (!scores.length) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Inter";
+        ctx.fillText("No trend data yet", w / 2 - 45, h / 2);
+        return;
+    }
+
+    const max = 100;
+    const min = 0;
+    const xStep = scores.length > 1 ? (w - pad * 2) / (scores.length - 1) : 0;
+    ctx.strokeStyle = "#1e3a8a";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    scores.forEach((v, i) => {
+        const x = pad + i * xStep;
+        const y = h - pad - ((v - min) / (max - min)) * (h - pad * 2);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+}
+
+function bindDropzone(dropzoneId, inputId, pillId) {
+    const dropzone = document.getElementById(dropzoneId);
+    const input = document.getElementById(inputId);
+    const pill = document.getElementById(pillId);
+    if (!dropzone || !input || !pill) return;
+
+    const updatePill = () => {
+        const file = input.files && input.files[0];
+        pill.textContent = file ? `Selected: ${file.name}` : `No ${inputId.includes("scan") ? "scan" : "protect"} file selected`;
+    };
+
+    input.addEventListener("change", updatePill);
+    ["dragenter", "dragover"].forEach(evt => {
+        dropzone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropzone.classList.add("dragover");
+        });
+    });
+    ["dragleave", "drop"].forEach(evt => {
+        dropzone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropzone.classList.remove("dragover");
+        });
+    });
+    dropzone.addEventListener("drop", e => {
+        const files = e.dataTransfer.files;
+        if (!files || !files.length) return;
+        const dt = new DataTransfer();
+        dt.items.add(files[0]);
+        input.files = dt.files;
+        updatePill();
+    });
 }
 
 async function scanFile() {
@@ -376,11 +448,14 @@ async function scanFile() {
     const formData = new FormData();
     formData.append("file", file);
     try {
+        await animateTimeline("scan");
         const res = await fetch("/scan", { method: "POST", body: formData });
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || "Scan failed");
 
-        document.getElementById("scanResults").style.display = "block";
+        const scanResults = document.getElementById("scanResults");
+        scanResults.hidden = false;
+        scanResults.style.display = "block";
         document.getElementById("riskContainer").innerHTML =
             `<span class="badge ${badgeClass(data.risk_level)}">${data.risk_level} RISK</span>`;
         document.getElementById("riskScore").textContent = `Risk Score: ${data.risk_score}/100`;
@@ -396,7 +471,9 @@ async function scanFile() {
         document.getElementById("findings").innerHTML = findingsHtml || "<div>No sensitive data found.</div>";
         document.getElementById("extractedPreview").textContent = data.extracted_preview || "(no extracted text)";
         loadRecentScans();
+        completeTimeline(true);
     } catch (error) {
+        completeTimeline(false);
         alert(error.message);
     } finally {
         btn.disabled = false;
@@ -420,11 +497,14 @@ async function protectFile() {
     formData.append("action", action);
 
     try {
+        await animateTimeline("protect");
         const res = await fetch("/protect", { method: "POST", body: formData });
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || "Protection failed");
 
-        document.getElementById("protectResults").style.display = "block";
+        const protectResults = document.getElementById("protectResults");
+        protectResults.hidden = false;
+        protectResults.style.display = "block";
         document.getElementById("protectMeta").innerHTML =
             `Action: <strong>${data.action}</strong> | Output: <strong>${data.output_file}</strong>` +
             (data.key_file ? ` | Key: <strong>${data.key_file}</strong>` : "");
@@ -437,7 +517,9 @@ async function protectFile() {
             document.getElementById("qualityMeta").textContent = "Quality metrics are available for redaction actions.";
         }
         document.getElementById("protectPreview").textContent = data.preview || "";
+        completeTimeline(true);
     } catch (error) {
+        completeTimeline(false);
         alert(error.message);
     } finally {
         btn.disabled = false;
@@ -461,16 +543,21 @@ async function verifyRedaction() {
     formData.append("protected", protectedFile);
 
     try {
+        await animateTimeline("verify");
         const res = await fetch("/verify-redaction", { method: "POST", body: formData });
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || "Verification failed");
 
-        document.getElementById("verifyResults").style.display = "block";
+        const verifyResults = document.getElementById("verifyResults");
+        verifyResults.hidden = false;
+        verifyResults.style.display = "block";
         const statusClass = data.quality_status === "PASS" ? "ok" : "fail";
         document.getElementById("verifyMeta").innerHTML =
             `Status: <span class="${statusClass}">${data.quality_status}</span> | Coverage: ${data.coverage_percent}% | Leaks: ${data.leak_count}/${data.total_sensitive_items}`;
         document.getElementById("verifyLeaks").textContent = JSON.stringify(data.leaked_items, null, 2);
+        completeTimeline(true);
     } catch (error) {
+        completeTimeline(false);
         alert(error.message);
     } finally {
         btn.disabled = false;
@@ -516,6 +603,16 @@ async function runOcrDiagnostics() {
 }
 
 window.onload = loadRecentScans;
+bindDropzone("scanDropzone", "scanFile", "scanFilePill");
+document.getElementById("protectFile").addEventListener("change", () => {
+    const file = document.getElementById("protectFile").files[0];
+    document.getElementById("protectFilePill").textContent = file
+        ? `Selected: ${file.name}`
+        : "No protect file selected";
+});
+setTimelineMode("scan");
+updateTimeline(0, "Idle");
 </script>
+</div>
 </body>
 </html>

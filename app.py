@@ -64,12 +64,14 @@ def _build_dashboard_summary() -> dict:
 
     avg_risk_score = round(avg_risk_score / total_scans, 2) if total_scans else 0.0
     high_ratio = round((risk_distribution["High"] / total_scans) * 100, 2) if total_scans else 0.0
+    trend_scores = [int(entry.get("risk_score", 0)) for entry in reversed(scan_history)]
     return {
         "documents_scanned": total_scans,
         "average_risk_score": avg_risk_score,
         "high_risk_ratio": high_ratio,
         "risk_distribution": risk_distribution,
         "entity_totals": entity_totals,
+        "trend_scores": trend_scores,
     }
 
 
