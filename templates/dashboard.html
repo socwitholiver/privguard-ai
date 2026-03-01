@@ -4,22 +4,67 @@
     <title>PRIVGUARD AI - Operations Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Roboto:wght@500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/tokens.css">
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="/static/css/privguard-dashboard.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
+<div id="startupSplash" class="startup-splash">
+    <div class="startup-content">
+        <div class="startup-logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M12 2L4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3zm3.2 9.1l-3.86 3.86a1 1 0 0 1-1.42 0l-1.92-1.92 1.41-1.42 1.22 1.22 3.16-3.15 1.41 1.41z"></path>
+            </svg>
+        </div>
+        <div class="startup-title">PRIVGUARD AI</div>
+        <div class="startup-subtitle">Initializing secure offline workspace...</div>
+        <div class="startup-spinner" aria-hidden="true"></div>
+        <div class="startup-credit">by Oliver Jackson</div>
+    </div>
+</div>
 <div class="pg-shell">
     <div class="topbar">
-        <div>
+        <div class="topbar-left">
+            <div class="profile-trigger" aria-label="Current profile">
+                <div id="profileAvatar" class="avatar-circle avatar-large" aria-hidden="true">{{ (user.display_name or user.username or "A")[0]|upper }}</div>
+                <div class="profile-text">
+                    <div id="profileGreeting" class="profile-greeting">Hello there welcome to</div>
+                </div>
+            </div>
+        </div>
+        <div class="topbar-center">
+            <div class="brand-logo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M12 2L4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3zm3.2 9.1l-3.86 3.86a1 1 0 0 1-1.42 0l-1.92-1.92 1.41-1.42 1.22 1.22 3.16-3.15 1.41 1.41z"></path>
+                </svg>
+            </div>
             <h1>PRIVGUARD AI</h1>
             <div class="subtitle">Compliance and Sensitive Data Operations Dashboard</div>
         </div>
-        <div>
-            <span class="chip">{{ user.username }} ({{ user.role }})</span>
-            <button class="btn-muted" onclick="logout()">Logout</button>
+        <div class="topbar-right">
+            <button class="icon-btn" type="button" onclick="openProfilePanel()" title="Edit profile" aria-label="Edit profile">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.01 7.01 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.23-1.13.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.68 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.8 14.52a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.5.4 1.05.71 1.63.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.58-.23 1.13-.54 1.63-.94l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>
+            </button>
+            <button id="themeToggleBtn" class="icon-btn" type="button" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+                <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 14.2A9 9 0 1 1 9.8 3a7 7 0 1 0 11.2 11.2z"/></svg>
+                <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zm0-16h1v3h-1V2zm0 17h1v3h-1v-3zM2 11h3v1H2v-1zm17 0h3v1h-3v-1zM4.2 4.9l.7-.7 2.1 2.1-.7.7-2.1-2.1zm12 12l.7-.7 2.1 2.1-.7.7-2.1-2.1zM4.2 19.1l2.1-2.1.7.7-2.1 2.1-.7-.7zm12-12 2.1-2.1.7.7-2.1 2.1-.7-.7z"/></svg>
+            </button>
+            <button class="icon-btn logout-btn" onclick="logout()" title="Logout" aria-label="Logout">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5 5 5zm-6 5h8v-2H4V4h8V2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2z"/></svg>
+            </button>
         </div>
+    </div>
+
+    <div class="nav-pane">
+        <button class="nav-pill" onclick="jumpToSection('workflowSection')">Workflow</button>
+        <button class="nav-pill" onclick="jumpToSection('verifySection')">Verification</button>
+        <button class="nav-pill" onclick="jumpToSection('analyticsSection')">Analytics</button>
+        <button class="nav-pill" onclick="jumpToSection('recentSection')">Recent Scans</button>
+        {% if user.role == "admin" %}
+        <button class="nav-pill" onclick="jumpToSection('adminSection')">Admin Ops</button>
+        {% endif %}
     </div>
 
     <div class="cards4">
@@ -47,36 +92,48 @@
 
     <div class="layout">
         <div>
-            <div class="card">
-                <h3>Workflow Actions</h3>
+            <div class="card" id="workflowSection">
+                <h3>Guided Scan Flow</h3>
+                <div class="guided-steps">
+                    <span id="guideStepUpload" class="guided-step active">1. Upload</span>
+                    <span id="guideStepScan" class="guided-step">2. Scan</span>
+                    <span id="guideStepReview" class="guided-step">3. Review</span>
+                    <span id="guideStepProtect" class="guided-step">4. Protect</span>
+                </div>
                 <div id="scanDropzone" class="upload-dropzone">
                     <div class="upload-dropzone-title">Drag and drop a document to scan</div>
                     <div class="upload-dropzone-sub">or use the file pickers below</div>
                     <div id="scanFilePill" class="file-pill">No scan file selected</div>
                 </div>
-                <div class="actions-grid">
-                    <div>
-                        <label for="scanFile">Scan File (.txt / image)</label>
-                        <input id="scanFile" type="file">
-                    </div>
-                    <div>
-                        <label for="protectFile">Protect File (.txt / image)</label>
-                        <input id="protectFile" type="file">
-                        <div id="protectFilePill" class="file-pill">No protect file selected</div>
-                    </div>
-                    <div>
-                        <label for="protectAction">Protection Action</label>
-                        <select id="protectAction">
-                            <option value="redact">Redact</option>
-                            <option value="encrypt">Encrypt</option>
-                        </select>
-                    </div>
+                <div>
+                    <label for="scanFile">Scan File (.txt / image)</label>
+                    <input id="scanFile" type="file">
                 </div>
                 <button id="scanBtn" onclick="scanFile()">Scan</button>
-                <button id="protectBtn" onclick="protectFile()">Protect</button>
+
+                <details class="advanced-panel">
+                    <summary>Advanced Protection Options</summary>
+                    <div class="actions-grid">
+                        <div>
+                            <label for="protectFile">Protect File (.txt / image)</label>
+                            <input id="protectFile" type="file">
+                            <div id="protectFilePill" class="file-pill">No protect file selected</div>
+                        </div>
+                        <div>
+                            <label for="protectAction">Protection Action</label>
+                            <select id="protectAction">
+                                <option value="redact">Redact</option>
+                                <option value="encrypt">Encrypt</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button id="protectBtn" onclick="protectFile()">Protect</button>
+                        </div>
+                    </div>
+                </details>
             </div>
 
-            <div class="card">
+            <div class="card" id="verifySection">
                 <h3>Verify Redaction Quality</h3>
                 <div class="actions-grid">
                     <div>
@@ -115,9 +172,18 @@
                 <div id="riskContainer"></div>
                 <div class="meta" id="riskScore"></div>
                 <div class="meta" id="riskInsights"></div>
+                <div id="recommendationBanner" class="recommendation-banner" hidden>
+                    <strong>Recommended action:</strong>
+                    <span id="recommendationText"></span>
+                    <button id="recommendationActionBtn" style="margin-left:8px;" onclick="applyRecommendedAction()">Apply</button>
+                </div>
                 <div class="result-block">
-                    <h4>Detected Items</h4>
-                    <div id="findings"></div>
+                    <h4>Top Critical Findings</h4>
+                    <div id="topFindings"></div>
+                    <button id="toggleAllFindingsBtn" class="btn-muted" onclick="toggleAllFindings()">View All Findings</button>
+                    <div id="allFindingsContainer" hidden>
+                        <div id="findings"></div>
+                    </div>
                 </div>
                 <div class="result-block">
                     <h4>Extracted Text Preview</h4>
@@ -140,7 +206,7 @@
         </div>
 
         <div>
-            <div class="card">
+            <div class="card" id="analyticsSection">
                 <h3>Risk Overview Charts</h3>
                 <canvas id="riskDonutCanvas" class="chart-canvas" width="500" height="180"></canvas>
                 <div class="meta">Risk distribution donut</div>
@@ -184,13 +250,13 @@
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card" id="recentSection">
                 <h3>Recent Scans</h3>
                 <div id="recentScans"></div>
             </div>
 
             {% if user.role == "admin" %}
-            <div class="card">
+            <div class="card" id="adminSection">
                 <h3>Admin Operations</h3>
                 <button onclick="exportAudit()">Export Signed Audit</button>
                 <button onclick="runRetention()">Run Retention Cleanup</button>
@@ -201,7 +267,41 @@
         </div>
     </div>
 
+    <div id="profilePanel" class="profile-panel" hidden>
+        <div class="profile-panel-card">
+            <div class="profile-panel-head">
+                <h3>Edit Profile</h3>
+                <button class="icon-btn" type="button" onclick="closeProfilePanel()" aria-label="Close profile panel">x</button>
+            </div>
+            <div class="profile-preview">
+                <div id="profileAvatarPreview" class="avatar-circle avatar-xl">{{ (user.display_name or user.username or "A")[0]|upper }}</div>
+                <div>
+                    <div class="profile-greeting" id="profilePreviewName">{{ user.display_name or user.username }}</div>
+                    <div class="meta">Update your name and avatar</div>
+                </div>
+            </div>
+            <label for="displayNameInput">Display Name</label>
+            <input id="displayNameInput" type="text" value="{{ user.display_name or user.username }}">
+            <label for="avatarInput">Avatar Image</label>
+            <input id="avatarInput" type="file" accept="image/*">
+            <div class="profile-actions">
+                <button id="saveProfileBtn" type="button" onclick="saveProfile()">Save Profile</button>
+                <button class="btn-muted" type="button" onclick="closeProfilePanel()">Cancel</button>
+            </div>
+            <div id="profileStatus" class="meta"></div>
+        </div>
+    </div>
+
 <script>
+let lastScanData = null;
+let recommendedAction = "redact";
+let lastDashboardSummary = null;
+let currentProfile = {
+    username: "{{ user.username }}",
+    display_name: "{{ user.display_name or user.username }}",
+    avatar_url: "{{ user.avatar_url or '' }}",
+};
+
 function badgeClass(level) {
     if (level === "High") return "high";
     if (level === "Medium") return "medium";
@@ -269,12 +369,254 @@ function completeTimeline(success) {
     updateTimeline(4, success ? "Completed successfully" : "Failed");
 }
 
+function setGuideStep(activeKey) {
+    const ids = {
+        upload: "guideStepUpload",
+        scan: "guideStepScan",
+        review: "guideStepReview",
+        protect: "guideStepProtect",
+    };
+    Object.values(ids).forEach(id => document.getElementById(id).classList.remove("active"));
+    if (ids[activeKey]) document.getElementById(ids[activeKey]).classList.add("active");
+}
+
+function flattenFindings(findings) {
+    const priority = {kra_pins: 1, national_ids: 2, emails: 3, phone_numbers: 4};
+    const list = [];
+    for (const key in findings) {
+        (findings[key] || []).forEach(item => {
+            list.push({
+                type: key,
+                value: item.value || "",
+                confidence: Number(item.confidence || 0),
+                p: priority[key] || 99,
+            });
+        });
+    }
+    list.sort((a, b) => (a.p - b.p) || (b.confidence - a.confidence));
+    return list;
+}
+
+function renderFindingsViews(findings) {
+    const flat = flattenFindings(findings);
+    const top = flat.slice(0, 3);
+    const topHtml = top.map(item => `
+        <div class="finding-item">
+            <span class="finding-type">${item.type}</span>
+            <span class="finding-value">${item.value}</span>
+        </div>
+    `).join("");
+    document.getElementById("topFindings").innerHTML = topHtml || "<div class='meta'>No sensitive findings.</div>";
+
+    const allHtml = flat.map(item => `
+        <div class="finding-item">
+            <span class="finding-type">${item.type}</span>
+            <span class="finding-value">${item.value} (conf: ${item.confidence.toFixed(2)})</span>
+        </div>
+    `).join("");
+    document.getElementById("findings").innerHTML = allHtml || "<div class='meta'>No sensitive findings.</div>";
+}
+
+function recommendActionFromScan(data) {
+    const counts = data.counts || {};
+    const hasStrong = (counts.national_ids || 0) + (counts.kra_pins || 0) > 0;
+    if (data.risk_level === "High" || hasStrong) {
+        return {
+            action: "redact",
+            text: "Redact sensitive identifiers before sharing.",
+        };
+    }
+    if (data.risk_level === "Medium") {
+        return {
+            action: "encrypt",
+            text: "Encrypt document for secure storage and transfer.",
+        };
+    }
+    return {
+        action: "encrypt",
+        text: "Encrypt for added protection; risk is currently low.",
+    };
+}
+
+function showRecommendation(data) {
+    const rec = recommendActionFromScan(data);
+    recommendedAction = rec.action;
+    document.getElementById("recommendationText").textContent = rec.text;
+    document.getElementById("recommendationBanner").hidden = false;
+}
+
+function toggleAllFindings() {
+    const container = document.getElementById("allFindingsContainer");
+    const btn = document.getElementById("toggleAllFindingsBtn");
+    container.hidden = !container.hidden;
+    btn.textContent = container.hidden ? "View All Findings" : "Hide All Findings";
+}
+
+function tryCopyScanFileToProtect() {
+    const scanInput = document.getElementById("scanFile");
+    const protectInput = document.getElementById("protectFile");
+    if (protectInput.files && protectInput.files.length > 0) return;
+    if (!(scanInput.files && scanInput.files.length > 0)) return;
+    const dt = new DataTransfer();
+    dt.items.add(scanInput.files[0]);
+    protectInput.files = dt.files;
+    document.getElementById("protectFilePill").textContent = `Selected: ${scanInput.files[0].name}`;
+}
+
+function applyRecommendedAction() {
+    document.getElementById("protectAction").value = recommendedAction;
+    tryCopyScanFileToProtect();
+    setGuideStep("protect");
+    protectFile();
+}
+
+function applyTheme(theme) {
+    document.body.setAttribute("data-theme", theme);
+    if (lastDashboardSummary) renderSummary(lastDashboardSummary);
+}
+
+function toggleTheme() {
+    const current = document.body.getAttribute("data-theme") || "light";
+    const next = current === "dark" ? "light" : "dark";
+    applyTheme(next);
+    localStorage.setItem("pg-theme", next);
+}
+
+function hideStartupSplash() {
+    const splash = document.getElementById("startupSplash");
+    if (!splash) return;
+    if (window.gsap) {
+        gsap.to(splash, {
+            opacity: 0,
+            duration: 0.45,
+            ease: "power2.inOut",
+            onComplete: () => {
+                splash.style.display = "none";
+                animateDashboardEntry();
+            },
+        });
+        return;
+    }
+    splash.classList.add("is-hidden");
+    setTimeout(() => {
+        splash.style.display = "none";
+        animateDashboardEntry();
+    }, 320);
+}
+
+function jumpToSection(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function openProfilePanel() {
+    const panel = document.getElementById("profilePanel");
+    panel.removeAttribute("hidden");
+    panel.classList.add("open");
+}
+
+function closeProfilePanel() {
+    const panel = document.getElementById("profilePanel");
+    panel.classList.remove("open");
+    panel.setAttribute("hidden", "hidden");
+}
+
+function renderProfile(profile) {
+    currentProfile = { ...currentProfile, ...profile };
+    const display = currentProfile.display_name || currentProfile.username || "Admin";
+    const initial = (display[0] || "A").toUpperCase();
+    const avatarUrl = currentProfile.avatar_url || "";
+
+    const profileGreeting = document.getElementById("profileGreeting");
+    if (profileGreeting) profileGreeting.textContent = "Hello there welcome to";
+    const namePreview = document.getElementById("profilePreviewName");
+    if (namePreview) namePreview.textContent = display;
+    const displayInput = document.getElementById("displayNameInput");
+    if (displayInput) displayInput.value = display;
+
+    const avatar = document.getElementById("profileAvatar");
+    const avatarPreview = document.getElementById("profileAvatarPreview");
+    [avatar, avatarPreview].forEach(node => {
+        if (!node) return;
+        if (avatarUrl) {
+            node.innerHTML = "";
+            node.style.backgroundImage = `url('${avatarUrl}')`;
+            node.style.backgroundSize = "cover";
+            node.style.backgroundPosition = "center";
+            node.textContent = "";
+        } else {
+            node.style.backgroundImage = "";
+            node.textContent = initial;
+        }
+    });
+}
+
+async function loadProfile() {
+    try {
+        const res = await fetch("/api/profile");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.profile) renderProfile(data.profile);
+    } catch (_) {
+        // Keep dashboard usable even if profile loading fails.
+    }
+}
+
+async function saveProfile() {
+    const btn = document.getElementById("saveProfileBtn");
+    const status = document.getElementById("profileStatus");
+    const displayName = document.getElementById("displayNameInput").value.trim();
+    const avatarFile = document.getElementById("avatarInput").files[0];
+    const form = new FormData();
+    form.append("display_name", displayName);
+    if (avatarFile) form.append("avatar", avatarFile);
+
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    status.textContent = "";
+    try {
+        const res = await fetch("/api/profile", { method: "POST", body: form });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Profile update failed");
+        renderProfile(data.profile || {});
+        status.textContent = "Profile updated.";
+        closeProfilePanel();
+    } catch (error) {
+        status.textContent = error.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Save Profile";
+    }
+}
+
+function runStartupAnimations() {
+    if (!window.gsap) return;
+    gsap.fromTo(".startup-logo", { scale: 0.82, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.8)" });
+    gsap.fromTo(".startup-title", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, delay: 0.15, ease: "power2.out" });
+    gsap.fromTo(".startup-subtitle", { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, delay: 0.28, ease: "power2.out" });
+    gsap.fromTo(".startup-credit", { opacity: 0 }, { opacity: 0.95, duration: 0.5, delay: 0.45, ease: "sine.out" });
+}
+
+function animateDashboardEntry() {
+    if (!window.gsap) return;
+    gsap.fromTo(".topbar", { y: -18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55, ease: "power2.out" });
+    gsap.fromTo(".cards4 .card", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, stagger: 0.08, ease: "power2.out", delay: 0.08 });
+    gsap.fromTo(".layout > div .card", { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, stagger: 0.06, ease: "power2.out", delay: 0.16 });
+}
+
 function setBarWidth(id, value, total) {
     const pct = total > 0 ? Math.min(100, (value / total) * 100) : 0;
     document.getElementById(id).style.width = `${pct}%`;
 }
 
+function themeVar(name, fallback) {
+    const value = getComputedStyle(document.body).getPropertyValue(name).trim();
+    return value || fallback;
+}
+
 function renderSummary(summary) {
+    lastDashboardSummary = summary || {};
     const docs = summary.documents_scanned || 0;
     const entities = summary.entity_totals || {};
     const entityTotal = (entities.national_ids || 0) + (entities.phone_numbers || 0) + (entities.emails || 0) + (entities.kra_pins || 0);
@@ -319,11 +661,11 @@ function drawRiskDonut(canvasId, risks) {
     const total = (risks.High || 0) + (risks.Medium || 0) + (risks.Low || 0);
 
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = themeVar("--pg-card", "#ffffff");
     ctx.fillRect(0, 0, w, h);
     if (total === 0) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px Inter";
+        ctx.fillStyle = themeVar("--pg-text-muted", "#6b7280");
+        ctx.font = "14px Outfit";
         ctx.textAlign = "center";
         ctx.fillText("No risk data yet", cx, cy);
         return;
@@ -352,8 +694,8 @@ function drawRiskDonut(canvasId, risks) {
     ctx.fillStyle = "#ffffff";
     ctx.fill();
 
-    ctx.fillStyle = "#1f2937";
-    ctx.font = "bold 16px Inter";
+    ctx.fillStyle = themeVar("--pg-text", "#111111");
+    ctx.font = "bold 16px Outfit";
     ctx.textAlign = "center";
     ctx.fillText(`${total} scans`, cx, cy + 4);
 }
@@ -367,11 +709,11 @@ function drawTrendLine(canvasId, scores) {
     const pad = 28;
 
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = themeVar("--pg-card", "#ffffff");
     ctx.fillRect(0, 0, w, h);
 
     // axes
-    ctx.strokeStyle = "#d1d5db";
+    ctx.strokeStyle = themeVar("--pg-border", "#d1d5db");
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(pad, pad);
@@ -380,8 +722,8 @@ function drawTrendLine(canvasId, scores) {
     ctx.stroke();
 
     if (!scores.length) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px Inter";
+        ctx.fillStyle = themeVar("--pg-text-muted", "#6b7280");
+        ctx.font = "14px Outfit";
         ctx.fillText("No trend data yet", w / 2 - 45, h / 2);
         return;
     }
@@ -389,7 +731,7 @@ function drawTrendLine(canvasId, scores) {
     const max = 100;
     const min = 0;
     const xStep = scores.length > 1 ? (w - pad * 2) / (scores.length - 1) : 0;
-    ctx.strokeStyle = "#1e3a8a";
+    ctx.strokeStyle = "#006b3f";
     ctx.lineWidth = 2;
     ctx.beginPath();
     scores.forEach((v, i) => {
@@ -441,6 +783,7 @@ async function scanFile() {
         alert("Select a file to scan.");
         return;
     }
+    setGuideStep("scan");
     const btn = document.getElementById("scanBtn");
     btn.disabled = true;
     btn.textContent = "Scanning...";
@@ -461,17 +804,13 @@ async function scanFile() {
         document.getElementById("riskScore").textContent = `Risk Score: ${data.risk_score}/100`;
         document.getElementById("riskInsights").innerHTML = data.insights.map(i => `- ${i}`).join("<br>");
 
-        let findingsHtml = "";
-        for (const key in data.findings) {
-            const entries = data.findings[key] || [];
-            if (!entries.length) continue;
-            const items = entries.map(entry => `<li>${entry.value} (confidence: ${Number(entry.confidence).toFixed(2)})</li>`).join("");
-            findingsHtml += `<div class="result-block"><strong>${key}</strong><ul>${items}</ul></div>`;
-        }
-        document.getElementById("findings").innerHTML = findingsHtml || "<div>No sensitive data found.</div>";
+        renderFindingsViews(data.findings || {});
+        showRecommendation(data);
+        lastScanData = data;
         document.getElementById("extractedPreview").textContent = data.extracted_preview || "(no extracted text)";
         loadRecentScans();
         completeTimeline(true);
+        setGuideStep("review");
     } catch (error) {
         completeTimeline(false);
         alert(error.message);
@@ -488,6 +827,7 @@ async function protectFile() {
         alert("Select a file to protect.");
         return;
     }
+    setGuideStep("protect");
     const btn = document.getElementById("protectBtn");
     btn.disabled = true;
     btn.textContent = "Processing...";
@@ -602,7 +942,16 @@ async function runOcrDiagnostics() {
     document.getElementById("adminResult").textContent = JSON.stringify(data, null, 2);
 }
 
-window.onload = loadRecentScans;
+window.onload = async () => {
+    const startupDelay = new Promise(resolve => setTimeout(resolve, 4000));
+    const savedTheme = localStorage.getItem("pg-theme") || "light";
+    applyTheme(savedTheme);
+    runStartupAnimations();
+    renderProfile(currentProfile);
+    await Promise.all([loadRecentScans(), startupDelay]);
+    await loadProfile();
+    hideStartupSplash();
+};
 bindDropzone("scanDropzone", "scanFile", "scanFilePill");
 document.getElementById("protectFile").addEventListener("change", () => {
     const file = document.getElementById("protectFile").files[0];
@@ -612,6 +961,7 @@ document.getElementById("protectFile").addEventListener("change", () => {
 });
 setTimelineMode("scan");
 updateTimeline(0, "Idle");
+setGuideStep("upload");
 </script>
 </div>
 </body>
