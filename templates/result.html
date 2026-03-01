@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PrivGuard AI Report</title>
+    <style>
+        body {
+            font-family: Arial;
+            background-color: #0f172a;
+            color: white;
+            padding: 30px;
+        }
+        .card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .high { color: red; }
+        .medium { color: orange; }
+        .low { color: green; }
+        h1 { color: #ef4444; }
+    </style>
+</head>
+<body>
+
+<h1>🛡 PRIVGUARD AI SCAN REPORT</h1>
+
+<div class="card">
+    <p><strong>File:</strong> {{ filename }}</p>
+    <p><strong>Scan Time:</strong> {{ scan_time }}</p>
+    <p><strong>Risk Level:</strong> 
+        <span class="{{ risk_level|lower }}">{{ risk_level }}</span>
+        (Score: {{ score }}/100)
+    </p>
+</div>
+
+<div class="card">
+    <h2>🚨 Sensitive Data Detected</h2>
+    {% if findings %}
+        <ul>
+        {% for item in findings %}
+            <li>
+                <strong>{{ item.type }}</strong><br>
+                Value: {{ item.value }}<br>
+                Impact: {{ item.impact }}<br>
+                Risk: {{ item.risk }}
+            </li>
+            <hr>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No sensitive data detected.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>🤖 AI Recommendations</h2>
+    <ul>
+        {% for rec in recommendations %}
+        <li>{{ rec }}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="card">
+    <h2>⚙ Automatic Actions Taken</h2>
+    <ul>
+        {% for act in actions %}
+        <li>{{ act }}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+</body>
+</html>

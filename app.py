@@ -1,7 +1,8 @@
 import os
+import json
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_from_directory, session
 from werkzeug.utils import secure_filename
 
 from classification import build_risk_summary
@@ -26,9 +27,12 @@ app.secret_key = os.environ.get("PRIVGUARD_SECRET_KEY", "privguard-dev-secret-ch
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "outputs"
 KEY_FOLDER = "keys"
+AVATAR_FOLDER = os.path.join(UPLOAD_FOLDER, "avatars")
+PROFILE_STORE = Path("instance/user_profiles.json")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(KEY_FOLDER, exist_ok=True)
+os.makedirs(AVATAR_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 init_db()
 
@@ -41,6 +45,40 @@ def _save_upload(file_obj, destination_dir: str) -> Path:
     filepath = Path(destination_dir) / filename
     file_obj.save(str(filepath))
     return filepath
+
+
+def _load_profile_store() -> dict:
+    if not PROFILE_STORE.exists():
+        return {}
+    try:
+        return json.loads(PROFILE_STORE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_profile_store(data: dict) -> None:
+    PROFILE_STORE.parent.mkdir(parents=True, exist_ok=True)
+    PROFILE_STORE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _get_profile(username: str) -> dict:
+    profiles = _load_profile_store()
+    profile = profiles.get(username, {})
+    display_name = str(profile.get("display_name", username))
+    avatar_url = str(profile.get("avatar_url", ""))
+    return {"display_name": display_name, "avatar_url": avatar_url}
+
+
+def _set_profile(username: str, display_name: str | None = None, avatar_url: str | None = None) -> dict:
+    profiles = _load_profile_store()
+    current = profiles.get(username, {})
+    if display_name is not None:
+        current["display_name"] = display_name
+    if avatar_url is not None:
+        current["avatar_url"] = avatar_url
+    profiles[username] = current
+    _save_profile_store(profiles)
+    return {"display_name": str(current.get("display_name", username)), "avatar_url": str(current.get("avatar_url", ""))}
 
 
 def _build_dashboard_summary() -> dict:
@@ -98,20 +136,57 @@ def login():
     user = authenticate_user(username, password)
     if not user:
         return jsonify({"error": "Invalid credentials"}), 401
-    from flask import session
-
+    profile = _get_profile(user["username"])
     session["username"] = user["username"]
     session["role"] = user["role"]
+    session["display_name"] = profile["display_name"]
+    session["avatar_url"] = profile["avatar_url"]
     return jsonify({"message": "Login successful", "role": user["role"]})
 
 
 @app.route("/logout", methods=["POST"])
 @require_login
 def logout():
-    from flask import session
-
     session.clear()
     return jsonify({"message": "Logged out"})
+
+
+@app.route("/user-avatar/<path:filename>")
+@require_login
+def user_avatar(filename: str):
+    return send_from_directory(AVATAR_FOLDER, filename)
+
+
+@app.route("/api/profile", methods=["GET", "POST"])
+@require_login
+def profile_api():
+    user = current_user() or {}
+    username = str(user.get("username", ""))
+    if not username:
+        return jsonify({"error": "Authentication required"}), 401
+
+    if request.method == "GET":
+        return jsonify({"profile": _get_profile(username)})
+
+    display_name = str(request.form.get("display_name", "")).strip()
+    if not display_name:
+        display_name = username
+
+    avatar_url = None
+    avatar_file = request.files.get("avatar")
+    if avatar_file and avatar_file.filename:
+        ext = Path(secure_filename(avatar_file.filename)).suffix.lower()
+        if ext not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+            return jsonify({"error": "Avatar must be an image file (png, jpg, jpeg, webp, gif)."}), 400
+        avatar_name = secure_filename(f"{username}{ext}")
+        avatar_path = Path(AVATAR_FOLDER) / avatar_name
+        avatar_file.save(str(avatar_path))
+        avatar_url = f"/user-avatar/{avatar_name}"
+
+    updated = _set_profile(username, display_name=display_name, avatar_url=avatar_url)
+    session["display_name"] = updated["display_name"]
+    session["avatar_url"] = updated["avatar_url"]
+    return jsonify({"message": "Profile updated", "profile": updated})
 
 
 @app.route("/api/dashboard-data")

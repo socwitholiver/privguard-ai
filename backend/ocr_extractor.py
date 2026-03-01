@@ -1,26 +1,33 @@
-import pytesseract
-from PIL import Image
-import os
+from pathlib import Path
+
+from backend.file_loader import FileLoader
+from backend.logger import get_logger
+
+logger = get_logger()
+
 
 class OCRExtractor:
     """
-    Handles OCR extraction from images.
+    Backward-compatible OCR/text extraction facade.
+
+    Older pipeline code expects `OCRExtractor.extract_text(filepath)`.
+    This shim keeps that contract while delegating plain document loading
+    to `FileLoader` and using optional image OCR only when available.
     """
 
     def __init__(self):
-        # Set Tesseract executable path
-        pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+        self.loader = FileLoader()
 
     def extract_text(self, filepath):
-        """
-        Extract text from an image file.
-        Raises RuntimeError on failure.
-        """
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"File not found: {filepath}")
+        ext = Path(filepath).suffix.lower()
+        if ext in {".png", ".jpg", ".jpeg"}:
+            return self._extract_image_text(filepath)
+        return self.loader.load_file(filepath)
+
+    def _extract_image_text(self, filepath):
         try:
-            image = Image.open(filepath)
-            text = pytesseract.image_to_string(image)
-            return text
-        except Exception as e:
-            raise RuntimeError(f"OCR extraction failed: {str(e)}")
+            from backend.ocr_engine import extract_text_from_image
+        except Exception as exc:
+            logger.warning(f"OCR engine unavailable for image extraction: {exc}")
+            return ""
+        return extract_text_from_image(filepath)

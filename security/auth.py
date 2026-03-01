@@ -44,7 +44,12 @@ def current_user() -> Optional[dict]:
     role = session.get("role")
     if not username or not role:
         return None
-    return {"username": username, "role": role}
+    return {
+        "username": username,
+        "role": role,
+        "display_name": session.get("display_name", username),
+        "avatar_url": session.get("avatar_url", ""),
+    }
 
 
 def has_permission(role: str, permission: str) -> bool:

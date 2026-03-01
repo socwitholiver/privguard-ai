@@ -78,3 +78,41 @@ class AIClassifier:
             "confidence": confidence,
             "score": score
         }
+
+    def generate_insights(self, findings: Dict, risk_result: Dict) -> Dict:
+        """
+        Legacy compatibility API expected by older tests.
+
+        Returns lightweight reasons/recommendations aligned to detected
+        sensitive types and the provided risk level.
+        """
+        risk_level = str(risk_result.get("level", "Low"))
+        reasons = []
+        recommendations = []
+
+        if findings.get("financial"):
+            reasons.append("Financial identifiers detected.")
+            recommendations.append("Mask or encrypt financial fields before sharing.")
+        if findings.get("id_number"):
+            reasons.append("National ID values detected.")
+            recommendations.append("Redact ID values from outbound documents.")
+        if findings.get("email"):
+            reasons.append("Email addresses detected.")
+            recommendations.append("Limit exposure of contact data to authorized users.")
+        if findings.get("phone"):
+            reasons.append("Phone numbers detected.")
+            recommendations.append("Apply masking for phone values in reports.")
+
+        if risk_level in {"High", "Critical"}:
+            recommendations.append("Restrict access and enforce strong encryption controls.")
+
+        if not reasons:
+            reasons.append("No sensitive data patterns were detected.")
+        if not recommendations:
+            recommendations.append("Maintain current controls and continue monitoring.")
+
+        return {
+            "risk_level": risk_level,
+            "reasons": reasons,
+            "recommendations": recommendations,
+        }

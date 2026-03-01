@@ -2,45 +2,99 @@
 <html>
 <head>
     <title>PRIVGUARD AI - Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --pg-black: #111111;
+            --pg-green: #006b3f;
+            --pg-red: #bb1e10;
+            --pg-white: #ffffff;
+        }
+        * { box-sizing: border-box; }
         body {
             margin: 0;
-            background: #0f172a;
-            font-family: "Segoe UI", sans-serif;
-            color: #e5e7eb;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
+            display: grid;
+            place-items: center;
+            font-family: "Outfit", "Segoe UI", sans-serif;
+            color: var(--pg-white);
+            background: linear-gradient(145deg, var(--pg-black) 0%, var(--pg-green) 62%, var(--pg-red) 100%);
+            padding: 20px;
         }
-        .card {
-            width: 360px;
-            background: #1e293b;
+        .login-shell {
+            width: min(440px, 94vw);
+            background: rgba(17, 17, 17, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 16px;
             padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(4px);
         }
-        h2 { margin-top: 0; }
-        p { color: #94a3b8; font-size: 14px; }
-        label { display: block; margin-top: 12px; margin-bottom: 6px; }
+        .brand {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .brand-logo {
+            width: 54px;
+            height: 54px;
+            border-radius: 14px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, var(--pg-black), var(--pg-green), var(--pg-red));
+            border: 1px solid rgba(255,255,255,0.25);
+        }
+        .brand-logo svg {
+            width: 30px;
+            height: 30px;
+            fill: white;
+        }
+        h1 {
+            margin: 10px 0 6px;
+            font-family: "Orbitron", "Outfit", sans-serif;
+            letter-spacing: 0.04em;
+            font-size: 26px;
+        }
+        .subtitle {
+            margin: 0 0 14px;
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 14px;
+        }
+        label {
+            display: block;
+            margin-top: 12px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.9);
+        }
         input {
             width: 100%;
-            box-sizing: border-box;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #334155;
-            background: #0f172a;
-            color: #e5e7eb;
+            padding: 11px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--pg-white);
+            font-family: inherit;
+            outline: none;
+        }
+        input:focus {
+            border-color: #7dd3a6;
+            box-shadow: 0 0 0 3px rgba(125, 211, 166, 0.2);
         }
         button {
             margin-top: 16px;
             width: 100%;
-            padding: 10px;
+            padding: 11px 12px;
             border: none;
-            border-radius: 8px;
-            background: #2563eb;
+            border-radius: 10px;
+            background: linear-gradient(90deg, var(--pg-green), var(--pg-red));
             color: white;
             font-weight: 700;
+            font-family: "Outfit", "Segoe UI", sans-serif;
             cursor: pointer;
         }
         .error {
@@ -51,14 +105,21 @@
         .note {
             margin-top: 10px;
             font-size: 12px;
-            color: #cbd5e1;
+            color: rgba(255, 255, 255, 0.8);
         }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>PRIVGUARD AI</h2>
-        <p>Sign in to access secure scan and protection workflows.</p>
+    <div class="login-shell">
+        <div class="brand">
+            <div class="brand-logo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M12 2L4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3zm3.2 9.1l-3.86 3.86a1 1 0 0 1-1.42 0l-1.92-1.92 1.41-1.42 1.22 1.22 3.16-3.15 1.41 1.41z"></path>
+                </svg>
+            </div>
+            <h1>PRIVGUARD AI</h1>
+            <p class="subtitle">Secure login for offline data protection operations.</p>
+        </div>
         <label for="username">Username</label>
         <input id="username" type="text" placeholder="admin">
         <label for="password">Password</label>
