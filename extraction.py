@@ -5,6 +5,8 @@ Supports plain text-like files and image OCR using local Tesseract.
 
 from __future__ import annotations
 
+import os
+import shutil
 from pathlib import Path
 
 from PIL import Image, ImageOps
@@ -24,8 +26,37 @@ PDF_SUFFIXES = {".pdf"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"}
 
 
+def _configure_tesseract_cmd() -> None:
+    """Configure Tesseract path for Windows-friendly local setups.
+
+    Priority:
+    1) `TESSERACT_CMD` environment variable
+    2) executable discoverable on PATH
+    3) common Windows install locations under Program Files
+    """
+    env_cmd = os.environ.get("TESSERACT_CMD", "").strip()
+    if env_cmd and Path(env_cmd).exists():
+        pytesseract.pytesseract.tesseract_cmd = env_cmd
+        return
+
+    on_path = shutil.which("tesseract")
+    if on_path:
+        pytesseract.pytesseract.tesseract_cmd = on_path
+        return
+
+    common_windows_paths = [
+        Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
+        Path(r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"),
+    ]
+    for candidate in common_windows_paths:
+        if candidate.exists():
+            pytesseract.pytesseract.tesseract_cmd = str(candidate)
+            return
+
+
 def _extract_text_from_image(path: Path) -> str:
     """Run lightweight preprocessing + OCR on an image file."""
+    _configure_tesseract_cmd()
     image = Image.open(path)
     # Improve OCR quality with grayscale and auto contrast.
     processed = ImageOps.autocontrast(ImageOps.grayscale(image))
@@ -59,6 +90,7 @@ def _extract_text_from_pdf(path: Path) -> str:
 
     try:
         ocr_chunks = []
+        _configure_tesseract_cmd()
         with fitz.open(str(path)) as doc:
             for page in doc:
                 pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
