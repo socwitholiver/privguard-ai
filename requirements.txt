@@ -3,3 +3,5 @@ rich
 pillow
 pytesseract
 pyyaml
+pypdf
+pymupdf
