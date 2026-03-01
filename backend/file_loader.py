@@ -1,6 +1,13 @@
 import os
-import PyPDF2
-import docx
+try:
+    import PyPDF2
+except Exception:  # pragma: no cover - optional dependency path
+    PyPDF2 = None
+
+try:
+    import docx
+except Exception:  # pragma: no cover - optional dependency path
+    docx = None
 from backend.logger import get_logger
 
 logger = get_logger()
@@ -54,6 +61,8 @@ class FileLoader:
             raise
 
     def _extract_from_pdf(self, filepath):
+        if PyPDF2 is None:
+            raise ModuleNotFoundError("PyPDF2 is required for PDF extraction.")
         text = ""
         try:
             with open(filepath, "rb") as file:
@@ -66,6 +75,8 @@ class FileLoader:
         return text.strip()
 
     def _extract_from_docx(self, filepath):
+        if docx is None:
+            raise ModuleNotFoundError("python-docx is required for DOCX extraction.")
         try:
             doc = docx.Document(filepath)
             text = "\n".join([para.text for para in doc.paragraphs])
