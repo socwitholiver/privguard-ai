@@ -314,12 +314,32 @@ def protect():
             {
                 "action": "encrypt",
                 "output_file": str(out_path),
+                "download_filename": out_path.name,
                 "key_file": str(key_path),
+                "key_filename": key_path.name,
                 "preview": encrypted[:220],
             }
         )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/download-key/<path:filename>")
+@require_login
+def download_key(filename: str):
+    """Serve a key file from KEY_FOLDER for download (encrypt key)."""
+    safe_name = secure_filename(Path(filename).name)
+    if not safe_name:
+        return jsonify({"error": "Invalid filename"}), 400
+    path = Path(KEY_FOLDER) / safe_name
+    if not path.is_file() or not path.resolve().is_relative_to(Path(KEY_FOLDER).resolve()):
+        return jsonify({"error": "File not found"}), 404
+    return send_from_directory(
+        KEY_FOLDER,
+        safe_name,
+        as_attachment=True,
+        download_name=safe_name,
+    )
 
 
 @app.route("/download-output/<path:filename>")

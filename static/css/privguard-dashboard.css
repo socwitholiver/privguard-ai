@@ -637,6 +637,23 @@ button:disabled {
   filter: brightness(1.1);
 }
 
+.protect-encrypt-cta {
+  flex-wrap: wrap;
+}
+
+.encrypt-decrypt-hint {
+  width: 100%;
+  margin-top: 6px;
+  word-break: break-word;
+}
+
+.encrypt-decrypt-hint code {
+  font-size: 11px;
+  background: var(--pg-surface);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .verify-hint {
   padding: 12px;
   margin-bottom: 12px;

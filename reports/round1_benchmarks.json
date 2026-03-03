@@ -1,0 +1,60 @@
+{
+  "generated_at_epoch": 1772435693,
+  "files_tested": [
+    "demo_docs\\school_admission_sample.txt",
+    "demo_docs\\sme_payroll_sample.txt"
+  ],
+  "summary": {
+    "ok_runs": 2,
+    "avg_total_ms": 5.82,
+    "avg_extract_ms": 1.29,
+    "avg_detect_ms": 1.23,
+    "avg_characters_per_second": 51878.52
+  },
+  "results": [
+    {
+      "file": "demo_docs\\school_admission_sample.txt",
+      "status": "ok",
+      "timings_ms": {
+        "extract": 1.45,
+        "detect": 1.06,
+        "classify": 0.08,
+        "redact": 0.05,
+        "verify_quality": 2.85,
+        "total": 5.49
+      },
+      "metrics": {
+        "characters": 257,
+        "characters_per_second": 46825.18,
+        "sensitive_item_count": 4,
+        "risk_level": "High",
+        "risk_score": 100,
+        "redaction_quality_status": "PASS",
+        "redaction_coverage_percent": 100.0,
+        "leak_count": 0
+      }
+    },
+    {
+      "file": "demo_docs\\sme_payroll_sample.txt",
+      "status": "ok",
+      "timings_ms": {
+        "extract": 1.12,
+        "detect": 1.39,
+        "classify": 0.04,
+        "redact": 0.05,
+        "verify_quality": 3.54,
+        "total": 6.15
+      },
+      "metrics": {
+        "characters": 350,
+        "characters_per_second": 56931.86,
+        "sensitive_item_count": 8,
+        "risk_level": "High",
+        "risk_score": 100,
+        "redaction_quality_status": "PASS",
+        "redaction_coverage_percent": 100.0,
+        "leak_count": 0
+      }
+    }
+  ]
+}

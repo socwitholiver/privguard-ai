@@ -201,6 +201,11 @@
                     <span>Redacted file has been downloaded.</span>
                     <button type="button" class="btn-verify-cta" onclick="goToVerifyRedaction()">Verify this redaction</button>
                 </div>
+                <div id="protectEncryptCta" class="protect-verify-cta protect-encrypt-cta" hidden>
+                    <span>Encrypted file has been downloaded.</span>
+                    <button type="button" class="btn-verify-cta" onclick="downloadKeyFile()">Download key file</button>
+                    <span class="encrypt-decrypt-hint meta">Keep the key secure. To decrypt: <code>python main.py decrypt --input &lt;.encrypted.txt&gt; --key-path &lt;.key&gt; --output-dir outputs</code></span>
+                </div>
             </div>
 
             <div class="card" id="verifyResults" hidden>
@@ -946,8 +951,24 @@ async function protectFile() {
             document.body.removeChild(a);
             window._lastRedactedFilename = downloadName;
             document.getElementById("protectVerifyCta").hidden = false;
+            document.getElementById("protectEncryptCta").hidden = true;
+        } else if (data.action === "encrypt") {
+            const encName = data.download_filename || (data.output_file && data.output_file.split(/[/\\]/).pop());
+            if (encName) {
+                const a = document.createElement("a");
+                a.href = "/download-output/" + encodeURIComponent(encName);
+                a.download = encName;
+                a.style.display = "none";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+            window._lastKeyFilename = data.key_filename || (data.key_file && data.key_file.split(/[/\\]/).pop());
+            document.getElementById("protectVerifyCta").hidden = true;
+            document.getElementById("protectEncryptCta").hidden = false;
         } else {
             document.getElementById("protectVerifyCta").hidden = true;
+            document.getElementById("protectEncryptCta").hidden = true;
         }
 
         completeTimeline(true);
@@ -968,6 +989,18 @@ function goToVerifyRedaction() {
     const safeName = String(name).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     hint.innerHTML = `Upload the downloaded file <strong>${safeName}</strong> as <strong>Protected file</strong>, and your original document as <strong>Original file</strong>, then click Verify.`;
     hint.hidden = false;
+}
+
+function downloadKeyFile() {
+    const name = window._lastKeyFilename;
+    if (!name) return;
+    const a = document.createElement("a");
+    a.href = "/download-key/" + encodeURIComponent(name);
+    a.download = name;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 
 async function verifyRedaction() {
