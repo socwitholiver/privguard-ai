@@ -135,6 +135,7 @@
 
             <div class="card" id="verifySection">
                 <h3>Verify Redaction Quality</h3>
+                <div id="verifyHint" class="verify-hint" hidden></div>
                 <div class="actions-grid">
                     <div>
                         <label for="originalFile">Original File</label>
@@ -196,12 +197,16 @@
                 <div class="meta" id="protectMeta"></div>
                 <div class="meta" id="qualityMeta"></div>
                 <pre id="protectPreview"></pre>
+                <div id="protectVerifyCta" class="protect-verify-cta" hidden>
+                    <span>Redacted file has been downloaded.</span>
+                    <button type="button" class="btn-verify-cta" onclick="goToVerifyRedaction()">Verify this redaction</button>
+                </div>
             </div>
 
             <div class="card" id="verifyResults" hidden>
                 <h3>Redaction Verification</h3>
                 <div id="verifyMeta"></div>
-                <pre id="verifyLeaks"></pre>
+                <div id="verifyLeaks"></div>
             </div>
         </div>
 
@@ -258,10 +263,21 @@
             {% if user.role == "admin" %}
             <div class="card" id="adminSection">
                 <h3>Admin Operations</h3>
+                <div class="ocr-toggle-row">
+                    <label class="toggle-wrap" for="sharpOcrToggle">
+                        <span class="toggle-label">Sharp OCR</span>
+                        <span class="toggle-desc">Better for blurry or unclear photos (upscale, denoise, sharpen)</span>
+                    </label>
+                    <label class="switch" aria-label="Toggle Sharp OCR">
+                        <input type="checkbox" id="sharpOcrToggle" onchange="saveSharpOcr(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                    <span id="sharpOcrStatus" class="ocr-toggle-status"></span>
+                </div>
                 <button onclick="exportAudit()">Export Signed Audit</button>
                 <button onclick="runRetention()">Run Retention Cleanup</button>
                 <button onclick="runOcrDiagnostics()">OCR Diagnostics</button>
-                <pre id="adminResult"></pre>
+                <div id="adminResult"></div>
             </div>
             {% endif %}
         </div>
@@ -307,6 +323,66 @@ function badgeClass(level) {
     if (level === "Medium") return "medium";
     if (level === "Low") return "low";
     return "safe";
+}
+
+function renderAdminResult(kind, data) {
+    const container = document.getElementById("adminResult");
+    if (!container) return;
+    if (!data || data.error) {
+        container.innerHTML = `<div class="meta">⚠ ${data && data.error ? data.error : "Operation failed."}</div>`;
+        return;
+    }
+    if (kind === "audit") {
+        const exported = data.records_exported ?? data.count ?? "n/a";
+        container.innerHTML = `
+            <div class="meta"><strong>Signed audit export completed.</strong></div>
+            <div class="meta">Records: <strong>${exported}</strong></div>
+            ${data.path ? `<div class="meta">File: <code>${data.path}</code></div>` : ""}
+        `;
+        return;
+    }
+    if (kind === "retention") {
+        const deleted = data.files_deleted ?? data.records_deleted ?? "n/a";
+        const kept = data.files_kept ?? data.records_kept ?? "n/a";
+        container.innerHTML = `
+            <div class="meta"><strong>Retention cleanup completed.</strong></div>
+            <div class="meta">Deleted: <strong>${deleted}</strong> &nbsp;|&nbsp; Kept: <strong>${kept}</strong></div>
+        `;
+        return;
+    }
+    if (kind === "ocr") {
+        const ok = data.ok ?? data.status === "ok";
+        container.innerHTML = `
+            <div class="meta"><strong>OCR diagnostics:</strong> <span class="${ok ? "ok" : "fail"}">${ok ? "READY" : "ISSUE"}</span></div>
+            ${data.tesseract_path ? `<div class="meta">Tesseract: <code>${data.tesseract_path}</code></div>` : ""}
+        `;
+        return;
+    }
+    container.innerHTML = `<div class="meta">${Object.keys(data).length ? "Operation completed." : "No data."}</div>`;
+}
+
+function renderVerifyLeaks(leakedItems) {
+    const container = document.getElementById("verifyLeaks");
+    if (!container) return;
+    const leaks = leakedItems || [];
+    if (!leaks.length) {
+        container.innerHTML = `<div class="meta">No leaked items detected.</div>`;
+        return;
+    }
+    const rows = leaks.slice(0, 10).map(item => {
+        const type = item.data_type || item.type || "unknown";
+        const value = item.value || "";
+        return `<tr><td>${type}</td><td>${value}</td></tr>`;
+    }).join("");
+    const more = leaks.length > 10 ? `<div class="meta">+${leaks.length - 10} more not shown.</div>` : "";
+    container.innerHTML = `
+        <div class="meta"><strong>Leaked items (showing up to 10):</strong></div>
+        <table class="leak-table">
+            <thead><tr><th>Type</th><th>Value</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+        ${more}
+    `;
 }
 
 function sleep(ms) {
@@ -857,6 +933,23 @@ async function protectFile() {
             document.getElementById("qualityMeta").textContent = "Quality metrics are available for redaction actions.";
         }
         document.getElementById("protectPreview").textContent = data.preview || "";
+
+        if (data.action === "redact" && (data.download_filename || data.output_file)) {
+            const downloadName = data.download_filename || data.output_file.split(/[/\\]/).pop();
+            const downloadUrl = "/download-output/" + encodeURIComponent(downloadName);
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = downloadName;
+            a.style.display = "none";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window._lastRedactedFilename = downloadName;
+            document.getElementById("protectVerifyCta").hidden = false;
+        } else {
+            document.getElementById("protectVerifyCta").hidden = true;
+        }
+
         completeTimeline(true);
     } catch (error) {
         completeTimeline(false);
@@ -865,6 +958,16 @@ async function protectFile() {
         btn.disabled = false;
         btn.textContent = "Protect";
     }
+}
+
+function goToVerifyRedaction() {
+    const verifySection = document.getElementById("verifySection");
+    verifySection.scrollIntoView({ behavior: "smooth", block: "start" });
+    const hint = document.getElementById("verifyHint");
+    const name = window._lastRedactedFilename || "the redacted file";
+    const safeName = String(name).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    hint.innerHTML = `Upload the downloaded file <strong>${safeName}</strong> as <strong>Protected file</strong>, and your original document as <strong>Original file</strong>, then click Verify.`;
+    hint.hidden = false;
 }
 
 async function verifyRedaction() {
@@ -894,7 +997,7 @@ async function verifyRedaction() {
         const statusClass = data.quality_status === "PASS" ? "ok" : "fail";
         document.getElementById("verifyMeta").innerHTML =
             `Status: <span class="${statusClass}">${data.quality_status}</span> | Coverage: ${data.coverage_percent}% | Leaks: ${data.leak_count}/${data.total_sensitive_items}`;
-        document.getElementById("verifyLeaks").textContent = JSON.stringify(data.leaked_items, null, 2);
+        renderVerifyLeaks(data.leaked_items);
         completeTimeline(true);
     } catch (error) {
         completeTimeline(false);
@@ -927,19 +1030,51 @@ async function logout() {
 async function exportAudit() {
     const res = await fetch("/admin/export-audit", { method: "POST" });
     const data = await res.json();
-    document.getElementById("adminResult").textContent = JSON.stringify(data, null, 2);
+    renderAdminResult("audit", data);
 }
 
 async function runRetention() {
     const res = await fetch("/admin/retention-cleanup", { method: "POST" });
     const data = await res.json();
-    document.getElementById("adminResult").textContent = JSON.stringify(data, null, 2);
+    renderAdminResult("retention", data);
 }
 
 async function runOcrDiagnostics() {
     const res = await fetch("/admin/ocr-diagnostics", { method: "POST" });
     const data = await res.json();
-    document.getElementById("adminResult").textContent = JSON.stringify(data, null, 2);
+    renderAdminResult("ocr", data);
+}
+
+async function loadOcrSettings() {
+    const toggle = document.getElementById("sharpOcrToggle");
+    if (!toggle) return;
+    try {
+        const res = await fetch("/api/ocr-settings");
+        if (!res.ok) return;
+        const data = await res.json();
+        toggle.checked = !!data.sharp_preprocessing;
+    } catch (_) {}
+}
+
+async function saveSharpOcr(checked) {
+    const status = document.getElementById("sharpOcrStatus");
+    if (!status) return;
+    status.textContent = "";
+    try {
+        const res = await fetch("/api/ocr-settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sharp_preprocessing: checked }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Failed to save");
+        status.textContent = "Saved";
+        status.classList.remove("err");
+        setTimeout(() => { status.textContent = ""; }, 2000);
+    } catch (e) {
+        status.textContent = "Error";
+        status.classList.add("err");
+    }
 }
 
 window.onload = async () => {
@@ -950,6 +1085,7 @@ window.onload = async () => {
     renderProfile(currentProfile);
     await Promise.all([loadRecentScans(), startupDelay]);
     await loadProfile();
+    await loadOcrSettings();
     hideStartupSplash();
 };
 bindDropzone("scanDropzone", "scanFile", "scanFilePill");

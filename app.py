@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 
 from classification import build_risk_summary
 from detection import count_sensitive_items, detect_sensitive_data
-from extraction import read_document_text
+from extraction import get_ocr_config, read_document_text, set_ocr_override
 from ops.audit_export import export_signed_audit
 from ops.ocr_diagnostics import run_ocr_diagnostics
 from ops.retention import run_retention_cleanup
@@ -288,6 +288,7 @@ def protect():
                 {
                     "action": "redact",
                     "output_file": str(out_path),
+                    "download_filename": out_path.name,
                     "quality": quality,
                     "preview": protected[:700],
                 }
@@ -319,6 +320,24 @@ def protect():
         )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/download-output/<path:filename>")
+@require_login
+def download_output(filename: str):
+    """Serve a file from OUTPUT_FOLDER for download (e.g. redacted output)."""
+    safe_name = secure_filename(Path(filename).name)
+    if not safe_name:
+        return jsonify({"error": "Invalid filename"}), 400
+    path = Path(OUTPUT_FOLDER) / safe_name
+    if not path.is_file() or not path.resolve().is_relative_to(Path(OUTPUT_FOLDER).resolve()):
+        return jsonify({"error": "File not found"}), 404
+    return send_from_directory(
+        OUTPUT_FOLDER,
+        safe_name,
+        as_attachment=True,
+        download_name=safe_name,
+    )
 
 
 @app.route("/verify-redaction", methods=["POST"])
@@ -403,6 +422,37 @@ def admin_ocr_diagnostics():
             details=result,
         )
         return jsonify(result)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/ocr-settings", methods=["GET"])
+@require_login
+def api_ocr_settings_get():
+    """Return current OCR settings (for dashboard toggle)."""
+    try:
+        cfg = get_ocr_config()
+        return jsonify({
+            "sharp_preprocessing": bool(cfg.get("sharp_preprocessing", True)),
+        })
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/ocr-settings", methods=["POST"])
+@require_permission("admin_cleanup")
+def api_ocr_settings_post():
+    """Update Sharp OCR toggle from dashboard (admin only)."""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        sharp = data.get("sharp_preprocessing")
+        if sharp is None:
+            return jsonify({"error": "sharp_preprocessing required"}), 400
+        set_ocr_override(bool(sharp))
+        cfg = get_ocr_config()
+        return jsonify({
+            "sharp_preprocessing": bool(cfg.get("sharp_preprocessing", True)),
+        })
     except Exception as exc:
         return jsonify({"error": str(exc)}), 400
 

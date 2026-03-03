@@ -5,3 +5,5 @@ pytesseract
 pyyaml
 pypdf
 pymupdf
+opencv-python
+numpy
