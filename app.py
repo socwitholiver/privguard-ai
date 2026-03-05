@@ -11,7 +11,14 @@ from extraction import get_ocr_config, read_document_text, set_ocr_override
 from ops.audit_export import export_signed_audit
 from ops.ocr_diagnostics import run_ocr_diagnostics
 from ops.retention import run_retention_cleanup
-from protection import encrypt_text, generate_encryption_key, redact_text, verify_redaction_quality
+from protection import (
+    decrypt_text,
+    encrypt_text,
+    generate_encryption_key,
+    redact_text,
+    validate_encrypted_token,
+    verify_redaction_quality,
+)
 from security.auth import (
     authenticate_user,
     current_user,
@@ -444,6 +451,50 @@ def admin_ocr_diagnostics():
         return jsonify(result)
     except Exception as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/admin/decrypt", methods=["POST"])
+@require_permission("admin_cleanup")
+def admin_decrypt():
+    """Decrypt an encrypted token file using a pasted secret key (admin only)."""
+    if "encrypted_file" not in request.files:
+        return jsonify({"error": "Upload an encrypted file (.encrypted.txt)."}), 400
+
+    encrypted_file = request.files["encrypted_file"]
+    if encrypted_file.filename == "":
+        return jsonify({"error": "Encrypted file must have a valid name."}), 400
+
+    secret_key = str(request.form.get("secret_key", "")).strip()
+    if not secret_key:
+        return jsonify({"error": "Secret key is required."}), 400
+
+    try:
+        encrypted_path = _save_upload(encrypted_file, app.config["UPLOAD_FOLDER"])
+        token = read_document_text(encrypted_path).strip()
+        if not validate_encrypted_token(token):
+            return jsonify({"error": "File does not look like a valid encrypted token."}), 400
+
+        decrypted_text = decrypt_text(token, secret_key.encode("utf-8"))
+        user = current_user() or {"username": "unknown"}
+        log_audit_event(
+            event_type="decrypt_web",
+            actor=user["username"],
+            source="web",
+            details={
+                "encrypted_file": encrypted_path.name,
+                "result": "success",
+                "decrypted_chars": len(decrypted_text),
+            },
+        )
+        return jsonify(
+            {
+                "message": "Decryption successful",
+                "decrypted_text": decrypted_text,
+                "decrypted_chars": len(decrypted_text),
+            }
+        )
+    except Exception:
+        return jsonify({"error": "Decryption failed. Invalid key or encrypted file."}), 400
 
 
 @app.route("/api/ocr-settings", methods=["GET"])

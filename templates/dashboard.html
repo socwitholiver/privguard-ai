@@ -11,6 +11,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
+<div class="skip-links">
+    <a href="#workflowSection">Skip to workflow</a>
+    <a href="#verifySection">Skip to verification</a>
+    {% if user.role == "admin" %}
+    <a href="#adminSection">Skip to admin operations</a>
+    {% endif %}
+    <a href="#analyticsSection">Skip to analytics</a>
+</div>
 <div id="startupSplash" class="startup-splash">
     <div class="startup-content">
         <div class="startup-logo" aria-hidden="true">
@@ -44,6 +52,11 @@
             <div class="subtitle">Compliance and Sensitive Data Operations Dashboard</div>
         </div>
         <div class="topbar-right">
+            <button class="icon-btn" type="button" onclick="openAccessibilityPanel()" title="Accessibility settings" aria-label="Open accessibility settings">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5c-5.5 0-9.6 4.1-11 6.8a1.2 1.2 0 0 0 0 1.1C2.4 15.6 6.5 19.7 12 19.7s9.6-4.1 11-6.8a1.2 1.2 0 0 0 0-1.1C21.6 9.1 17.5 5 12 5zm0 12.2a5.7 5.7 0 1 1 0-11.4 5.7 5.7 0 0 1 0 11.4zm0-9.1a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z"/>
+                </svg>
+            </button>
             <button class="icon-btn" type="button" onclick="openProfilePanel()" title="Edit profile" aria-label="Edit profile">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.01 7.01 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.23-1.13.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.68 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.8 14.52a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.5.4 1.05.71 1.63.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.58-.23 1.13-.54 1.63-.94l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>
             </button>
@@ -108,8 +121,10 @@
                 <div>
                     <label for="scanFile">Scan File (.txt / .pdf / image)</label>
                     <input id="scanFile" type="file">
+                    <div id="scanFileError" class="input-error" hidden></div>
                 </div>
                 <button id="scanBtn" onclick="scanFile()">Scan</button>
+                <button id="clearWorkspaceBtn" class="btn-muted" type="button" onclick="clearWorkspace()">Clear workspace</button>
 
                 <details class="advanced-panel">
                     <summary>Advanced Protection Options</summary>
@@ -118,6 +133,7 @@
                             <label for="protectFile">Protect File (.txt / .pdf / image)</label>
                             <input id="protectFile" type="file">
                             <div id="protectFilePill" class="file-pill">No protect file selected</div>
+                            <div id="protectFileError" class="input-error" hidden></div>
                         </div>
                         <div>
                             <label for="protectAction">Protection Action</label>
@@ -140,10 +156,12 @@
                     <div>
                         <label for="originalFile">Original File</label>
                         <input id="originalFile" type="file">
+                        <div id="verifyOriginalError" class="input-error" hidden></div>
                     </div>
                     <div>
                         <label for="protectedFile">Protected File (.txt / .pdf)</label>
                         <input id="protectedFile" type="file">
+                        <div id="verifyProtectedError" class="input-error" hidden></div>
                     </div>
                     <div>
                         <button id="verifyBtn" onclick="verifyRedaction()">Verify</button>
@@ -168,8 +186,8 @@
                 </div>
             </div>
 
-            <div class="card" id="scanResults" hidden>
-                <h3>Scan Results</h3>
+            <details class="card result-card" id="scanResults" hidden>
+                <summary>Scan Results</summary>
                 <div id="riskContainer"></div>
                 <div class="meta" id="riskScore"></div>
                 <div class="meta" id="riskInsights"></div>
@@ -190,10 +208,10 @@
                     <h4>Extracted Text Preview</h4>
                     <pre id="extractedPreview"></pre>
                 </div>
-            </div>
+            </details>
 
-            <div class="card" id="protectResults" hidden>
-                <h3>Protection Results</h3>
+            <details class="card result-card" id="protectResults" hidden>
+                <summary>Protection Results</summary>
                 <div class="meta" id="protectMeta"></div>
                 <div class="meta" id="qualityMeta"></div>
                 <pre id="protectPreview"></pre>
@@ -206,26 +224,26 @@
                     <button type="button" class="btn-verify-cta" onclick="downloadKeyFile()">Download key file</button>
                     <span class="encrypt-decrypt-hint meta">Keep the key secure. To decrypt: <code>python main.py decrypt --input &lt;.encrypted.txt&gt; --key-path &lt;.key&gt; --output-dir outputs</code></span>
                 </div>
-            </div>
+            </details>
 
-            <div class="card" id="verifyResults" hidden>
-                <h3>Redaction Verification</h3>
+            <details class="card result-card" id="verifyResults" hidden>
+                <summary>Redaction Verification</summary>
                 <div id="verifyMeta"></div>
                 <div id="verifyLeaks"></div>
-            </div>
+            </details>
         </div>
 
         <div>
-            <div class="card" id="analyticsSection">
-                <h3>Risk Overview Charts</h3>
+            <details class="card collapsible-card" id="analyticsSection">
+                <summary>Risk Overview Charts</summary>
                 <canvas id="riskDonutCanvas" class="chart-canvas" width="500" height="180"></canvas>
                 <div class="meta">Risk distribution donut</div>
                 <canvas id="trendCanvas" class="chart-canvas" width="500" height="180"></canvas>
                 <div class="meta">Risk score trend over recent scans</div>
-            </div>
+            </details>
 
-            <div class="card">
-                <h3>Risk Distribution</h3>
+            <details class="card collapsible-card">
+                <summary>Risk Distribution</summary>
                 <div class="bar-wrap">
                     <div class="bar-label"><span>High</span><span id="riskHighLabel">0</span></div>
                     <div class="bar"><span id="riskHighBar" class="risk-bar-high"></span></div>
@@ -238,10 +256,10 @@
                     <div class="bar-label"><span>Low</span><span id="riskLowLabel">0</span></div>
                     <div class="bar"><span id="riskLowBar" class="risk-bar-low"></span></div>
                 </div>
-            </div>
+            </details>
 
-            <div class="card">
-                <h3>Entity Totals</h3>
+            <details class="card collapsible-card">
+                <summary>Entity Totals</summary>
                 <div class="bar-wrap">
                     <div class="bar-label"><span>National IDs</span><span id="entId">0</span></div>
                     <div class="bar"><span id="entIdBar"></span></div>
@@ -258,12 +276,12 @@
                     <div class="bar-label"><span>KRA PINs</span><span id="entKra">0</span></div>
                     <div class="bar"><span id="entKraBar"></span></div>
                 </div>
-            </div>
+            </details>
 
-            <div class="card" id="recentSection">
-                <h3>Recent Scans</h3>
+            <details class="card collapsible-card" id="recentSection">
+                <summary>Recent Scans</summary>
                 <div id="recentScans"></div>
-            </div>
+            </details>
 
             {% if user.role == "admin" %}
             <div class="card" id="adminSection">
@@ -282,11 +300,25 @@
                 <button onclick="exportAudit()">Export Signed Audit</button>
                 <button onclick="runRetention()">Run Retention Cleanup</button>
                 <button onclick="runOcrDiagnostics()">OCR Diagnostics</button>
+                <details class="admin-decrypt-panel">
+                    <summary>Decrypt Encrypted Document</summary>
+                    <label for="decryptEncryptedFile">Encrypted File (.encrypted.txt)</label>
+                    <input id="decryptEncryptedFile" type="file" accept=".txt">
+                    <div id="decryptEncryptedFileError" class="input-error" hidden></div>
+                    <label for="decryptSecretKey">Secret Key</label>
+                    <textarea id="decryptSecretKey" rows="3" placeholder="Paste the secret key value here"></textarea>
+                    <div id="decryptSecretKeyError" class="input-error" hidden></div>
+                    <button id="decryptBtn" onclick="decryptFromDashboard()">Decrypt Now</button>
+                    <div id="decryptStatus" class="meta"></div>
+                    <pre id="decryptOutput" hidden></pre>
+                </details>
                 <div id="adminResult"></div>
             </div>
             {% endif %}
         </div>
     </div>
+
+    <div id="ariaLiveStatus" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <div id="profilePanel" class="profile-panel" hidden>
         <div class="profile-panel-card">
@@ -310,6 +342,31 @@
                 <button class="btn-muted" type="button" onclick="closeProfilePanel()">Cancel</button>
             </div>
             <div id="profileStatus" class="meta"></div>
+        </div>
+    </div>
+
+    <div id="accessibilityPanel" class="profile-panel" hidden>
+        <div class="profile-panel-card">
+            <div class="profile-panel-head">
+                <h3>Accessibility Settings</h3>
+                <button class="icon-btn" type="button" onclick="closeAccessibilityPanel()" aria-label="Close accessibility settings">x</button>
+            </div>
+            <label for="highContrastToggle">High Contrast</label>
+            <input id="highContrastToggle" type="checkbox" onchange="saveAccessibilitySettings()">
+            <label for="fontSizeSelect">Font Size</label>
+            <select id="fontSizeSelect" onchange="saveAccessibilitySettings()">
+                <option value="default">Default</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra Large</option>
+            </select>
+            <label for="reduceMotionToggle">Reduce Motion</label>
+            <input id="reduceMotionToggle" type="checkbox" onchange="saveAccessibilitySettings()">
+            <label for="dyslexiaToggle">Dyslexia-friendly Reading</label>
+            <input id="dyslexiaToggle" type="checkbox" onchange="saveAccessibilitySettings()">
+            <div id="accessibilityStatus" class="meta"></div>
+            <div class="profile-actions">
+                <button class="btn-muted" type="button" onclick="closeAccessibilityPanel()">Close</button>
+            </div>
         </div>
     </div>
 
@@ -588,7 +645,38 @@ function hideStartupSplash() {
 function jumpToSection(id) {
     const el = document.getElementById(id);
     if (!el) return;
+    if (el.tagName === "DETAILS") {
+        el.open = true;
+    }
     el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function announceStatus(message) {
+    const node = document.getElementById("ariaLiveStatus");
+    if (!node) return;
+    node.textContent = "";
+    window.setTimeout(() => {
+        node.textContent = message;
+    }, 10);
+}
+
+function setInputError(id, message) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.hidden = !message;
+    node.textContent = message || "";
+}
+
+function clearInputErrors(ids) {
+    ids.forEach(id => setInputError(id, ""));
+}
+
+function focusResultCard(activeId) {
+    ["scanResults", "protectResults", "verifyResults"].forEach(id => {
+        const card = document.getElementById(id);
+        if (!card) return;
+        card.open = id === activeId;
+    });
 }
 
 function openProfilePanel() {
@@ -601,6 +689,61 @@ function closeProfilePanel() {
     const panel = document.getElementById("profilePanel");
     panel.classList.remove("open");
     panel.setAttribute("hidden", "hidden");
+}
+
+function openAccessibilityPanel() {
+    const panel = document.getElementById("accessibilityPanel");
+    panel.removeAttribute("hidden");
+    panel.classList.add("open");
+}
+
+function closeAccessibilityPanel() {
+    const panel = document.getElementById("accessibilityPanel");
+    panel.classList.remove("open");
+    panel.setAttribute("hidden", "hidden");
+}
+
+function applyAccessibilitySettings({ highContrast, fontScale, reduceMotion, dyslexiaMode }) {
+    document.body.setAttribute("data-contrast", highContrast ? "high" : "normal");
+    document.body.setAttribute("data-font-scale", fontScale || "default");
+    document.body.setAttribute("data-reduced-motion", reduceMotion ? "true" : "false");
+    document.body.setAttribute("data-dyslexia", dyslexiaMode ? "true" : "false");
+}
+
+function loadAccessibilitySettings() {
+    const settings = {
+        highContrast: localStorage.getItem("pg-high-contrast") === "true",
+        fontScale: localStorage.getItem("pg-font-scale") || "default",
+        reduceMotion: localStorage.getItem("pg-reduce-motion") === "true",
+        dyslexiaMode: localStorage.getItem("pg-dyslexia-mode") === "true",
+    };
+    applyAccessibilitySettings(settings);
+    const hc = document.getElementById("highContrastToggle");
+    const fs = document.getElementById("fontSizeSelect");
+    const rm = document.getElementById("reduceMotionToggle");
+    const dm = document.getElementById("dyslexiaToggle");
+    if (hc) hc.checked = settings.highContrast;
+    if (fs) fs.value = settings.fontScale;
+    if (rm) rm.checked = settings.reduceMotion;
+    if (dm) dm.checked = settings.dyslexiaMode;
+}
+
+function saveAccessibilitySettings() {
+    const highContrast = !!document.getElementById("highContrastToggle")?.checked;
+    const fontScale = document.getElementById("fontSizeSelect")?.value || "default";
+    const reduceMotion = !!document.getElementById("reduceMotionToggle")?.checked;
+    const dyslexiaMode = !!document.getElementById("dyslexiaToggle")?.checked;
+    localStorage.setItem("pg-high-contrast", String(highContrast));
+    localStorage.setItem("pg-font-scale", fontScale);
+    localStorage.setItem("pg-reduce-motion", String(reduceMotion));
+    localStorage.setItem("pg-dyslexia-mode", String(dyslexiaMode));
+    applyAccessibilitySettings({ highContrast, fontScale, reduceMotion, dyslexiaMode });
+    const status = document.getElementById("accessibilityStatus");
+    if (status) {
+        status.textContent = "Accessibility settings saved.";
+        setTimeout(() => { status.textContent = ""; }, 1800);
+    }
+    announceStatus("Accessibility settings updated.");
 }
 
 function renderProfile(profile) {
@@ -860,8 +1003,10 @@ function bindDropzone(dropzoneId, inputId, pillId) {
 
 async function scanFile() {
     const file = document.getElementById("scanFile").files[0];
+    clearInputErrors(["scanFileError"]);
     if (!file) {
-        alert("Select a file to scan.");
+        setInputError("scanFileError", "Please select a file to scan.");
+        announceStatus("Please select a file to scan.");
         return;
     }
     setGuideStep("scan");
@@ -879,7 +1024,8 @@ async function scanFile() {
 
         const scanResults = document.getElementById("scanResults");
         scanResults.hidden = false;
-        scanResults.style.display = "block";
+        scanResults.open = true;
+        focusResultCard("scanResults");
         document.getElementById("riskContainer").innerHTML =
             `<span class="badge ${badgeClass(data.risk_level)}">${data.risk_level} RISK</span>`;
         document.getElementById("riskScore").textContent = `Risk Score: ${data.risk_score}/100`;
@@ -892,9 +1038,11 @@ async function scanFile() {
         loadRecentScans();
         completeTimeline(true);
         setGuideStep("review");
+        announceStatus(`Scan completed. ${data.risk_level} risk identified.`);
     } catch (error) {
         completeTimeline(false);
         alert(error.message);
+        announceStatus("Scan failed.");
     } finally {
         btn.disabled = false;
         btn.textContent = "Scan";
@@ -904,8 +1052,10 @@ async function scanFile() {
 async function protectFile() {
     const file = document.getElementById("protectFile").files[0];
     const action = document.getElementById("protectAction").value;
+    clearInputErrors(["protectFileError"]);
     if (!file) {
-        alert("Select a file to protect.");
+        setInputError("protectFileError", "Please select a file to protect.");
+        announceStatus("Please select a file to protect.");
         return;
     }
     setGuideStep("protect");
@@ -925,7 +1075,8 @@ async function protectFile() {
 
         const protectResults = document.getElementById("protectResults");
         protectResults.hidden = false;
-        protectResults.style.display = "block";
+        protectResults.open = true;
+        focusResultCard("protectResults");
         document.getElementById("protectMeta").innerHTML =
             `Action: <strong>${data.action}</strong> | Output: <strong>${data.output_file}</strong>` +
             (data.key_file ? ` | Key: <strong>${data.key_file}</strong>` : "");
@@ -972,9 +1123,11 @@ async function protectFile() {
         }
 
         completeTimeline(true);
+        announceStatus(`Protection completed with ${data.action}.`);
     } catch (error) {
         completeTimeline(false);
         alert(error.message);
+        announceStatus("Protection failed.");
     } finally {
         btn.disabled = false;
         btn.textContent = "Protect";
@@ -1006,8 +1159,11 @@ function downloadKeyFile() {
 async function verifyRedaction() {
     const original = document.getElementById("originalFile").files[0];
     const protectedFile = document.getElementById("protectedFile").files[0];
+    clearInputErrors(["verifyOriginalError", "verifyProtectedError"]);
     if (!original || !protectedFile) {
-        alert("Upload both original and protected files.");
+        if (!original) setInputError("verifyOriginalError", "Original file is required.");
+        if (!protectedFile) setInputError("verifyProtectedError", "Protected file is required.");
+        announceStatus("Both original and protected files are required.");
         return;
     }
     const btn = document.getElementById("verifyBtn");
@@ -1026,15 +1182,18 @@ async function verifyRedaction() {
 
         const verifyResults = document.getElementById("verifyResults");
         verifyResults.hidden = false;
-        verifyResults.style.display = "block";
+        verifyResults.open = true;
+        focusResultCard("verifyResults");
         const statusClass = data.quality_status === "PASS" ? "ok" : "fail";
         document.getElementById("verifyMeta").innerHTML =
             `Status: <span class="${statusClass}">${data.quality_status}</span> | Coverage: ${data.coverage_percent}% | Leaks: ${data.leak_count}/${data.total_sensitive_items}`;
         renderVerifyLeaks(data.leaked_items);
         completeTimeline(true);
+        announceStatus(`Verification complete. Status ${data.quality_status}.`);
     } catch (error) {
         completeTimeline(false);
         alert(error.message);
+        announceStatus("Verification failed.");
     } finally {
         btn.disabled = false;
         btn.textContent = "Verify";
@@ -1078,6 +1237,97 @@ async function runOcrDiagnostics() {
     renderAdminResult("ocr", data);
 }
 
+async function decryptFromDashboard() {
+    const encryptedFile = document.getElementById("decryptEncryptedFile").files[0];
+    const secretKey = document.getElementById("decryptSecretKey").value.trim();
+    const btn = document.getElementById("decryptBtn");
+    const status = document.getElementById("decryptStatus");
+    const output = document.getElementById("decryptOutput");
+
+    clearInputErrors(["decryptEncryptedFileError", "decryptSecretKeyError"]);
+    if (!encryptedFile) {
+        setInputError("decryptEncryptedFileError", "Upload an encrypted file first.");
+        announceStatus("Encrypted file is required.");
+        return;
+    }
+    if (!secretKey) {
+        setInputError("decryptSecretKeyError", "Paste the secret key.");
+        announceStatus("Secret key is required.");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Decrypting...";
+    status.textContent = "";
+    output.hidden = true;
+    output.textContent = "";
+    const formData = new FormData();
+    formData.append("encrypted_file", encryptedFile);
+    formData.append("secret_key", secretKey);
+
+    try {
+        const res = await fetch("/admin/decrypt", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Decryption failed");
+        status.innerHTML = `<span class="ok">Decryption successful</span> (${data.decrypted_chars || 0} characters)`;
+        output.textContent = data.decrypted_text || "";
+        output.hidden = false;
+        announceStatus("Decryption successful.");
+    } catch (error) {
+        status.innerHTML = `<span class="fail">${error.message}</span>`;
+        announceStatus("Decryption failed.");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Decrypt Now";
+    }
+}
+
+function clearWorkspace() {
+    const byId = (id) => document.getElementById(id);
+    ["scanResults", "protectResults", "verifyResults"].forEach(id => {
+        const section = byId(id);
+        if (!section) return;
+        section.hidden = true;
+        section.open = false;
+    });
+    if (byId("recommendationBanner")) byId("recommendationBanner").hidden = true;
+    if (byId("allFindingsContainer")) byId("allFindingsContainer").hidden = true;
+    if (byId("toggleAllFindingsBtn")) byId("toggleAllFindingsBtn").textContent = "View All Findings";
+    if (byId("verifyHint")) byId("verifyHint").hidden = true;
+    if (byId("protectVerifyCta")) byId("protectVerifyCta").hidden = true;
+    if (byId("protectEncryptCta")) byId("protectEncryptCta").hidden = true;
+    if (byId("decryptOutput")) {
+        byId("decryptOutput").hidden = true;
+        byId("decryptOutput").textContent = "";
+    }
+    if (byId("decryptStatus")) byId("decryptStatus").textContent = "";
+    if (byId("extractedPreview")) byId("extractedPreview").textContent = "";
+    if (byId("protectPreview")) byId("protectPreview").textContent = "";
+    if (byId("verifyLeaks")) byId("verifyLeaks").innerHTML = "";
+    if (byId("riskContainer")) byId("riskContainer").innerHTML = "";
+    if (byId("riskScore")) byId("riskScore").textContent = "";
+    if (byId("riskInsights")) byId("riskInsights").textContent = "";
+    if (byId("scanFilePill")) byId("scanFilePill").textContent = "No scan file selected";
+    if (byId("protectFilePill")) byId("protectFilePill").textContent = "No protect file selected";
+    if (byId("scanFile")) byId("scanFile").value = "";
+    if (byId("protectFile")) byId("protectFile").value = "";
+    if (byId("originalFile")) byId("originalFile").value = "";
+    if (byId("protectedFile")) byId("protectedFile").value = "";
+    if (byId("decryptEncryptedFile")) byId("decryptEncryptedFile").value = "";
+    if (byId("decryptSecretKey")) byId("decryptSecretKey").value = "";
+    clearInputErrors([
+        "scanFileError",
+        "protectFileError",
+        "verifyOriginalError",
+        "verifyProtectedError",
+        "decryptEncryptedFileError",
+        "decryptSecretKeyError",
+    ]);
+    updateTimeline(0, "Idle");
+    setGuideStep("upload");
+    announceStatus("Workspace cleared.");
+}
+
 async function loadOcrSettings() {
     const toggle = document.getElementById("sharpOcrToggle");
     if (!toggle) return;
@@ -1115,6 +1365,7 @@ window.onload = async () => {
     const savedTheme = localStorage.getItem("pg-theme") || "light";
     applyTheme(savedTheme);
     runStartupAnimations();
+    loadAccessibilitySettings();
     renderProfile(currentProfile);
     await Promise.all([loadRecentScans(), startupDelay]);
     await loadProfile();
@@ -1127,6 +1378,11 @@ document.getElementById("protectFile").addEventListener("change", () => {
     document.getElementById("protectFilePill").textContent = file
         ? `Selected: ${file.name}`
         : "No protect file selected";
+});
+document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    closeProfilePanel();
+    closeAccessibilityPanel();
 });
 setTimelineMode("scan");
 updateTimeline(0, "Idle");
