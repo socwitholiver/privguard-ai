@@ -1,1393 +1,400 @@
-<!DOCTYPE html>
-<html>
+﻿<!DOCTYPE html>
+<html lang="en">
 <head>
-    <title>PRIVGUARD AI - Operations Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/base.css">
-    <link rel="stylesheet" href="/static/css/privguard-dashboard.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PrivGuard AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/privguard-cyber-ui.css') }}">
 </head>
-<body>
-<div class="skip-links">
-    <a href="#workflowSection">Skip to workflow</a>
-    <a href="#verifySection">Skip to verification</a>
-    {% if user.role == "admin" %}
-    <a href="#adminSection">Skip to admin operations</a>
-    {% endif %}
-    <a href="#analyticsSection">Skip to analytics</a>
-</div>
-<div id="startupSplash" class="startup-splash">
-    <div class="startup-content">
-        <div class="startup-logo" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M12 2L4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3zm3.2 9.1l-3.86 3.86a1 1 0 0 1-1.42 0l-1.92-1.92 1.41-1.42 1.22 1.22 3.16-3.15 1.41 1.41z"></path>
-            </svg>
-        </div>
-        <div class="startup-title">PRIVGUARD AI</div>
-        <div class="startup-subtitle">Initializing secure offline workspace...</div>
-        <div class="startup-spinner" aria-hidden="true"></div>
-        <div class="startup-credit">by Oliver Jackson</div>
-    </div>
-</div>
-<div class="pg-shell">
-    <div class="topbar">
-        <div class="topbar-left">
-            <div class="profile-trigger" aria-label="Current profile">
-                <div id="profileAvatar" class="avatar-circle avatar-large" aria-hidden="true">{{ (user.display_name or user.username or "A")[0]|upper }}</div>
-                <div class="profile-text">
-                    <div id="profileGreeting" class="profile-greeting">Hello there welcome to</div>
-                </div>
-            </div>
-        </div>
-        <div class="topbar-center">
-            <div class="brand-logo" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M12 2L4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3zm3.2 9.1l-3.86 3.86a1 1 0 0 1-1.42 0l-1.92-1.92 1.41-1.42 1.22 1.22 3.16-3.15 1.41 1.41z"></path>
-                </svg>
-            </div>
-            <h1>PRIVGUARD AI</h1>
-            <div class="subtitle">Compliance and Sensitive Data Operations Dashboard</div>
-        </div>
-        <div class="topbar-right">
-            <button class="icon-btn" type="button" onclick="openAccessibilityPanel()" title="Accessibility settings" aria-label="Open accessibility settings">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 5c-5.5 0-9.6 4.1-11 6.8a1.2 1.2 0 0 0 0 1.1C2.4 15.6 6.5 19.7 12 19.7s9.6-4.1 11-6.8a1.2 1.2 0 0 0 0-1.1C21.6 9.1 17.5 5 12 5zm0 12.2a5.7 5.7 0 1 1 0-11.4 5.7 5.7 0 0 1 0 11.4zm0-9.1a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z"/>
-                </svg>
-            </button>
-            <button class="icon-btn" type="button" onclick="openProfilePanel()" title="Edit profile" aria-label="Edit profile">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.01 7.01 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.23-1.13.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.68 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.8 14.52a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.5.4 1.05.71 1.63.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.58-.23 1.13-.54 1.63-.94l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>
-            </button>
-            <button id="themeToggleBtn" class="icon-btn" type="button" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
-                <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 14.2A9 9 0 1 1 9.8 3a7 7 0 1 0 11.2 11.2z"/></svg>
-                <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zm0-16h1v3h-1V2zm0 17h1v3h-1v-3zM2 11h3v1H2v-1zm17 0h3v1h-3v-1zM4.2 4.9l.7-.7 2.1 2.1-.7.7-2.1-2.1zm12 12l.7-.7 2.1 2.1-.7.7-2.1-2.1zM4.2 19.1l2.1-2.1.7.7-2.1 2.1-.7-.7zm12-12 2.1-2.1.7.7-2.1 2.1-.7-.7z"/></svg>
-            </button>
-            <button class="icon-btn logout-btn" onclick="logout()" title="Logout" aria-label="Logout">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5 5 5zm-6 5h8v-2H4V4h8V2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2z"/></svg>
-            </button>
-        </div>
-    </div>
-
-    <div class="nav-pane">
-        <button class="nav-pill" onclick="jumpToSection('workflowSection')">Workflow</button>
-        <button class="nav-pill" onclick="jumpToSection('verifySection')">Verification</button>
-        <button class="nav-pill" onclick="jumpToSection('analyticsSection')">Analytics</button>
-        <button class="nav-pill" onclick="jumpToSection('recentSection')">Recent Scans</button>
-        {% if user.role == "admin" %}
-        <button class="nav-pill" onclick="jumpToSection('adminSection')">Admin Ops</button>
-        {% endif %}
-    </div>
-
-    <div class="cards4">
-        <div class="card">
-            <div class="kpi-title">Documents Scanned</div>
-            <div class="kpi-value" id="kpiDocs">0</div>
-            <div class="kpi-sub">Recent rolling window</div>
-        </div>
-        <div class="card">
-            <div class="kpi-title">Average Risk Score</div>
-            <div class="kpi-value" id="kpiAvgRisk">0</div>
-            <div class="kpi-sub">Across recent scans</div>
-        </div>
-        <div class="card">
-            <div class="kpi-title">High Risk Ratio</div>
-            <div class="kpi-value" id="kpiHighRatio">0%</div>
-            <div class="kpi-sub">Risk posture indicator</div>
-        </div>
-        <div class="card">
-            <div class="kpi-title">Sensitive Items</div>
-            <div class="kpi-value" id="kpiEntities">0</div>
-            <div class="kpi-sub">IDs, phones, emails, KRA PINs</div>
-        </div>
-    </div>
-
-    <div class="layout">
-        <div>
-            <div class="card" id="workflowSection">
-                <h3>Guided Scan Flow</h3>
-                <div class="guided-steps">
-                    <span id="guideStepUpload" class="guided-step active">1. Upload</span>
-                    <span id="guideStepScan" class="guided-step">2. Scan</span>
-                    <span id="guideStepReview" class="guided-step">3. Review</span>
-                    <span id="guideStepProtect" class="guided-step">4. Protect</span>
-                </div>
-                <div id="scanDropzone" class="upload-dropzone">
-                    <div class="upload-dropzone-title">Drag and drop a document to scan</div>
-                    <div class="upload-dropzone-sub">or use the file pickers below</div>
-                    <div id="scanFilePill" class="file-pill">No scan file selected</div>
+<body class="pg-dashboard-body" data-theme="{{ user.theme or 'dark' }}">
+    <div class="pg-app-shell">
+        <header class="pg-topbar">
+            <div class="pg-brand">
+                <div class="pg-brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M12 2L4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3zm3.2 9.1l-3.86 3.86a1 1 0 0 1-1.42 0l-1.92-1.92 1.41-1.42 1.22 1.22 3.16-3.15 1.41 1.41z"></path>
+                    </svg>
                 </div>
                 <div>
-                    <label for="scanFile">Scan File (.txt / .pdf / image)</label>
-                    <input id="scanFile" type="file">
-                    <div id="scanFileError" class="input-error" hidden></div>
+                    <div class="pg-brand-text">PRIVGUARD AI</div>
+                    <div class="pg-overline" id="topSectionLabel">Dashboard</div>
                 </div>
-                <button id="scanBtn" onclick="scanFile()">Scan</button>
-                <button id="clearWorkspaceBtn" class="btn-muted" type="button" onclick="clearWorkspace()">Clear workspace</button>
+            </div>
+            <div class="pg-topbar-right">
+                <button class="pg-icon-button" id="themeToggleBtn" type="button" aria-label="Toggle interface theme">
+                    <span class="pg-icon-shell" id="themeToggleIcon" aria-hidden="true"></span>
+                    <span id="themeToggleLabel">Light mode</span>
+                </button>
+                <div class="pg-vault-pill"><span class="pg-dot"></span>Vault Unlocked</div>
+                <div class="pg-user-chip">
+                    <div class="pg-avatar-stack">
+                        <img id="topUserAvatarImage" class="pg-user-avatar-image{% if not user.avatar_url %} hidden{% endif %}" src="{{ user.avatar_url or '' }}" alt="Profile avatar">
+                        <div id="topUserAvatarFallback" class="pg-user-avatar{% if user.avatar_url %} hidden{% endif %}">{{ (user.display_name or user.username)[0]|upper }}</div>
+                    </div>
+                    <div class="pg-user-meta">
+                        <strong id="topUserDisplayName">{{ user.display_name or user.username }}</strong>
+                        <span id="topUserSubtext">@{{ user.username }}</span>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-                <details class="advanced-panel">
-                    <summary>Advanced Protection Options</summary>
-                    <div class="actions-grid">
+        <div class="pg-layout">
+            <aside class="pg-sidebar">
+                <nav class="pg-nav">
+                    <button class="pg-nav-btn active" type="button" data-screen="dashboard">
+                        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm10 8h8V3h-8v18zM3 21h8v-6H3v6z"></path></svg>
+                        <span class="pg-nav-label">Dashboard</span>
+                    </button>
+                    <button class="pg-nav-btn" type="button" data-screen="scan">
+                        <svg viewBox="0 0 24 24"><path d="M9 3v2H5v4H3V3h6zm12 0v6h-2V5h-4V3h6zM5 15v4h4v2H3v-6h2zm16 0v6h-6v-2h4v-4h2zM7 11h10v2H7z"></path></svg>
+                        <span class="pg-nav-label">Scan Document</span>
+                    </button>
+                    <button class="pg-nav-btn" type="button" data-screen="vault">
+                        <svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 0 0-4 4v2H6c-1.1 0-2 .9-2 2v10h16V10c0-1.1-.9-2-2-2h-2V6a4 4 0 0 0-4-4zm-2 6V6a2 2 0 1 1 4 0v2h-4zm2 8.75A1.75 1.75 0 1 1 12 13a1.75 1.75 0 0 1 0 3.5z"></path></svg>
+                        <span class="pg-nav-label">Secure Vault</span>
+                    </button>
+                    <button class="pg-nav-btn" type="button" data-screen="reports">
+                        <svg viewBox="0 0 24 24"><path d="M3 3h18v2H3zm2 4h4v12H5zm5 5h4v7h-4zm5-3h4v10h-4z"></path></svg>
+                        <span class="pg-nav-label">Risk Reports</span>
+                    </button>
+                    <button class="pg-nav-btn" type="button" data-screen="settings">
+                        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58-1.92-3.32-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54h-3.84l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96-1.92 3.32 2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.41 1.05.73 1.63.94l.36 2.54h3.84l.36-2.54c.58-.22 1.12-.53 1.63-.94l2.39.96 1.92-3.32-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"></path></svg>
+                        <span class="pg-nav-label">Settings</span>
+                    </button>
+                </nav>
+                <div class="pg-sidebar-foot">Offline AI privacy controls with Kenyan-sensitive document protection workflows.</div>
+            </aside>
+
+            <main class="pg-main">
+                <section class="pg-screen active" data-screen="dashboard">
+                    <div class="pg-screen-head">
                         <div>
-                            <label for="protectFile">Protect File (.txt / .pdf / image)</label>
-                            <input id="protectFile" type="file">
-                            <div id="protectFilePill" class="file-pill">No protect file selected</div>
-                            <div id="protectFileError" class="input-error" hidden></div>
+                            <h1 class="pg-screen-title">PrivGuard AI - Secure Workspace</h1>
+                            <p class="pg-screen-copy">A cybersecurity control center for privacy protection. Scan documents, inspect risk, and manage secure outputs from one local workspace.</p>
                         </div>
+                        <div class="pg-screen-actions">
+                            <button class="pg-button" id="protectDocumentBtn" type="button">
+                                <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5H5v14h14V5zm-2 8h-3v3h-4v-3H7V9h3V6h4v3h3v4z"></path></svg>
+                                Protect a Document
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="pg-metric-grid">
+                        <article class="pg-metric-card">
+                            <span>Documents Scanned</span>
+                            <strong id="metricScanned">0</strong>
+                            <p>Files processed locally by the AI privacy engine.</p>
+                        </article>
+                        <article class="pg-metric-card">
+                            <span>Protected Outputs</span>
+                            <strong id="metricProtected">0</strong>
+                            <p>Redacted and encrypted outputs currently available.</p>
+                        </article>
+                        <article class="pg-metric-card">
+                            <span>High Risk Alerts</span>
+                            <strong id="metricHighRisk">0</strong>
+                            <p>Recent files that triggered high-risk protection.</p>
+                        </article>
+                    </div>
+
+                    <section class="pg-card">
+                        <div class="pg-card-head">
+                            <div>
+                                <h2 class="pg-card-title">Recent Activity</h2>
+                                <p class="pg-card-copy">Recent documents processed by PrivGuard AI with risk level and final protection status.</p>
+                            </div>
+                        </div>
+                        <div class="pg-table-wrap">
+                            <table class="pg-table">
+                                <thead>
+                                    <tr>
+                                        <th>File Name</th>
+                                        <th>Risk Level</th>
+                                        <th>Protection Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboardTableBody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </section>
+
+                <section class="pg-screen" data-screen="scan">
+                    <div class="pg-screen-head">
                         <div>
-                            <label for="protectAction">Protection Action</label>
-                            <select id="protectAction">
-                                <option value="redact">Redact</option>
-                                <option value="encrypt">Encrypt</option>
-                            </select>
+                            <h1 class="pg-screen-title">Scan Document</h1>
+                            <p class="pg-screen-copy">Drop a document into the protection engine. PrivGuard extracts text, detects sensitive data, classifies risk, and applies protection automatically.</p>
                         </div>
+                        <div class="pg-screen-actions">
+                            <button class="pg-button" id="scanProtectBtn" type="button">
+                                <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H5a2 2 0 0 0-2 2v14l4-4h12a2 2 0 0 0 2-2V8l-7-5zm-2 13v-3H9v-2h3V8h2v3h3v2h-3v3h-2z"></path></svg>
+                                Protect Document
+                            </button>
+                        </div>
+                    </div>
+
+                    <section class="pg-card">
+                        <input id="fileInput" type="file" accept=".txt,.md,.csv,.log,.pdf,.docx,.png,.jpg,.jpeg,.bmp,.tiff,.webp" hidden>
+                        <div id="dropzone" class="pg-upload-zone">
+                            <div class="pg-upload-kicker">Scan + Protect</div>
+                            <div class="pg-upload-title">Drop document here to protect it</div>
+                            <div class="pg-upload-copy">PrivGuard supports PDF, DOCX, text files, and image-based documents. Sensitive data such as IDs, phone numbers, emails, passwords, and financial information are detected and secured automatically.</div>
+                            <div class="pg-chip-row">
+                                <span class="pg-chip">Kenyan IDs</span>
+                                <span class="pg-chip">KRA PINs</span>
+                                <span class="pg-chip">Emails</span>
+                                <span class="pg-chip">Passwords</span>
+                                <span class="pg-chip">Financial Data</span>
+                            </div>
+                        </div>
+                        <div id="selectedFileLabel" class="pg-inline-box">No document selected yet.</div>
+                        <div id="scanStatus" class="pg-status-box">PrivGuard is ready. Upload a document to start scanning.</div>
+                    </section>
+
+                    <div id="scanResultPanel" class="pg-result-grid hidden">
+                        <section class="pg-card pg-result-panel">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Sensitive Data Detected</h2>
+                                    <p class="pg-card-copy">AI risk analysis with automatic policy enforcement.</p>
+                                </div>
+                                <span id="scanRiskBadge" class="pg-badge pg-badge-risk-safe">Safe</span>
+                            </div>
+                            <div id="scanSummary" class="pg-inline-box"></div>
+                            <div id="scanRiskBreakdown" class="pg-report-grid"></div>
+                            <div class="pg-detection-panel">
+                                <div>
+                                    <h3 class="pg-card-title">Detection Results</h3>
+                                    <p class="pg-card-copy">Color-coded findings with risk level per data type.</p>
+                                </div>
+                                <div id="scanDetections" class="pg-detection-list"></div>
+                            </div>
+                        </section>
+
+                        <section class="pg-card pg-preview-panel">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Protection Output</h2>
+                                    <p class="pg-card-copy">PrivGuard applies protection and confirms each secured action.</p>
+                                </div>
+                            </div>
+                            <div id="scanPolicyReason" class="pg-inline-box"></div>
+                            <div id="scanSteps" class="pg-step-list"></div>
+                            <div id="scanResultActions" class="pg-action-row"></div>
+                            <div class="pg-preview-box" id="scanPreview">The protected preview appears here after processing.</div>
+                        </section>
+                    </div>
+                </section>
+
+                <section class="pg-screen" data-screen="vault">
+                    <div class="pg-screen-head">
                         <div>
-                            <button id="protectBtn" onclick="protectFile()">Protect</button>
+                            <h1 class="pg-screen-title">Secure Vault</h1>
+                            <p class="pg-screen-copy">Encrypted documents and protected outputs stored locally in PrivGuard’s secure vault.</p>
                         </div>
                     </div>
-                </details>
-            </div>
 
-            <div class="card" id="verifySection">
-                <h3>Verify Redaction Quality</h3>
-                <div id="verifyHint" class="verify-hint" hidden></div>
-                <div class="actions-grid">
-                    <div>
-                        <label for="originalFile">Original File</label>
-                        <input id="originalFile" type="file">
-                        <div id="verifyOriginalError" class="input-error" hidden></div>
+                    <section class="pg-card">
+                        <div class="pg-card-head">
+                            <div>
+                                <h2 class="pg-card-title">Vault Documents</h2>
+                                <p class="pg-card-copy">Review encrypted records, download redacted copies, and open secured files.</p>
+                            </div>
+                        </div>
+                        <div class="pg-table-wrap">
+                            <table class="pg-table">
+                                <thead>
+                                    <tr>
+                                        <th>Document ID</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vaultTableBody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </section>
+
+                <section class="pg-screen" data-screen="reports">
+                    <div class="pg-screen-head">
+                        <div>
+                            <h1 class="pg-screen-title">Risk Reports</h1>
+                            <p class="pg-screen-copy">Operational reporting for recent scans, entity totals, and audit activity from the local privacy engine.</p>
+                        </div>
                     </div>
-                    <div>
-                        <label for="protectedFile">Protected File (.txt / .pdf)</label>
-                        <input id="protectedFile" type="file">
-                        <div id="verifyProtectedError" class="input-error" hidden></div>
+
+                    <div class="pg-report-grid">
+                        <article class="pg-metric-card">
+                            <span>Documents Scanned</span>
+                            <strong id="reportDocsScanned">0</strong>
+                            <p>All recent documents processed by the engine.</p>
+                        </article>
+                        <article class="pg-metric-card">
+                            <span>High Risk</span>
+                            <strong id="reportHighRisk">0</strong>
+                            <p>High-risk items that triggered strict protection.</p>
+                        </article>
+                        <article class="pg-metric-card">
+                            <span>Average Risk Score</span>
+                            <strong id="reportAverageRisk">0</strong>
+                            <p>Mean risk across recent local scans.</p>
+                        </article>
                     </div>
-                    <div>
-                        <button id="verifyBtn" onclick="verifyRedaction()">Verify</button>
+
+                    <div class="pg-result-grid">
+                        <section class="pg-card">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Detected Entity Totals</h2>
+                                    <p class="pg-card-copy">Recent findings grouped by sensitive data type.</p>
+                                </div>
+                            </div>
+                            <div class="pg-table-wrap">
+                                <table class="pg-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Entity Type</th>
+                                            <th>Count</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="entityTotalsBody"></tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <section class="pg-card">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Audit Activity</h2>
+                                    <p class="pg-card-copy">Recent secure operations recorded by the system.</p>
+                                </div>
+                            </div>
+                            <div class="pg-table-wrap">
+                                <table class="pg-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Event</th>
+                                            <th>Document</th>
+                                            <th>Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportsActivityBody"></tbody>
+                                </table>
+                            </div>
+                        </section>
                     </div>
-                </div>
-            </div>
+                </section>
 
-            <div class="card" id="processTimelineCard">
-                <div class="timeline">
-                    <div class="timeline-header">
-                        <div class="timeline-title" id="timelineTitle">Processing Timeline</div>
-                        <div class="timeline-status" id="timelineStatus">Idle</div>
+                <section class="pg-screen" data-screen="settings">
+                    <div class="pg-screen-head">
+                        <div>
+                            <h1 class="pg-screen-title">Settings</h1>
+                            <p class="pg-screen-copy">Manage your operator profile, theme, and automation behavior without exposing encryption keys.</p>
+                        </div>
                     </div>
-                    <div class="timeline-progress"><span id="timelineProgressBar"></span></div>
-                    <ul class="timeline-steps">
-                        <li id="timelineStep0" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel0">Upload Received</span></li>
-                        <li id="timelineStep1" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel1">Extracting Content</span></li>
-                        <li id="timelineStep2" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel2">Detecting Sensitive Data</span></li>
-                        <li id="timelineStep3" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel3">Classifying Risk</span></li>
-                        <li id="timelineStep4" class="timeline-step"><span class="timeline-dot"></span><span id="timelineLabel4">Completed</span></li>
-                    </ul>
-                </div>
-            </div>
 
-            <details class="card result-card" id="scanResults" hidden>
-                <summary>Scan Results</summary>
-                <div id="riskContainer"></div>
-                <div class="meta" id="riskScore"></div>
-                <div class="meta" id="riskInsights"></div>
-                <div id="recommendationBanner" class="recommendation-banner" hidden>
-                    <strong>Recommended action:</strong>
-                    <span id="recommendationText"></span>
-                    <button id="recommendationActionBtn" style="margin-left:8px;" onclick="applyRecommendedAction()">Apply</button>
-                </div>
-                <div class="result-block">
-                    <h4>Top Critical Findings</h4>
-                    <div id="topFindings"></div>
-                    <button id="toggleAllFindingsBtn" class="btn-muted" onclick="toggleAllFindings()">View All Findings</button>
-                    <div id="allFindingsContainer" hidden>
-                        <div id="findings"></div>
+                    <div class="pg-settings-grid">
+                        <div class="pg-settings-column">
+                            <section class="pg-card pg-profile-card">
+                                <div class="pg-card-head">
+                                    <div>
+                                        <h2 class="pg-card-title">Profile & Appearance</h2>
+                                        <p class="pg-card-copy">Edit your local operator identity, upload an avatar, and switch the workspace between dark and light mode.</p>
+                                    </div>
+                                </div>
+                                <div class="pg-profile-grid">
+                                    <div class="pg-profile-summary">
+                                        <div class="pg-profile-avatar-frame">
+                                            <img id="settingsAvatarImage" class="pg-profile-avatar-image{% if not user.avatar_url %} hidden{% endif %}" src="{{ user.avatar_url or '' }}" alt="Profile avatar">
+                                            <div id="settingsAvatarFallback" class="pg-profile-avatar-fallback{% if user.avatar_url %} hidden{% endif %}">{{ (user.display_name or user.username)[0]|upper }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="pg-cell-strong" id="settingsProfileName">{{ user.display_name or user.username }}</div>
+                                            <div class="pg-footer-note" id="settingsProfileHandle">@{{ user.username }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="pg-input-group">
+                                        <label for="profileDisplayName">Display Name</label>
+                                        <input id="profileDisplayName" class="pg-input" type="text" maxlength="80" value="{{ user.display_name or user.username }}">
+                                    </div>
+                                    <div class="pg-upload-actions">
+                                        <label class="pg-file-trigger" for="profileAvatarInput">
+                                            <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 5h-3.17L15 3H9L7.17 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-8 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6.5A2.5 2.5 0 1 0 12 15a2.5 2.5 0 0 0 0-5z"></path></svg>
+                                            Upload Avatar
+                                        </label>
+                                        <input id="profileAvatarInput" type="file" accept=".png,.jpg,.jpeg,.webp,.gif" hidden>
+                                        <button class="pg-button-secondary" id="saveProfileBtn" type="button">
+                                            <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3H5a2 2 0 0 0-2 2v14l4-4h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-1 8h-3v3h-2v-3H8V9h3V6h2v3h3v2z"></path></svg>
+                                            Save Profile
+                                        </button>
+                                    </div>
+                                    <button class="pg-theme-switch" id="settingsThemeToggle" type="button" aria-pressed="{{ 'true' if (user.theme or 'dark') == 'light' else 'false' }}">
+                                        <span class="pg-theme-switch-track"><span class="pg-theme-switch-thumb"></span></span>
+                                        <span id="settingsThemeLabel">{{ 'Light mode active' if (user.theme or 'dark') == 'light' else 'Dark mode active' }}</span>
+                                    </button>
+                                    <div id="profileStatus" class="pg-status-box">Profile and appearance settings are stored locally on this device.</div>
+                                </div>
+                            </section>
+
+                            <section class="pg-card">
+                                <div class="pg-card-head">
+                                    <div>
+                                        <h2 class="pg-card-title">Watch Folder</h2>
+                                        <p class="pg-card-copy">Automatically protect every new file that appears in a monitored folder.</p>
+                                    </div>
+                                    <span id="watchBadge" class="pg-badge pg-badge-risk-safe">Watch Off</span>
+                                </div>
+                                <div class="pg-upload-actions">
+                                    <input id="watchFolderPath" class="pg-text-input" type="text" placeholder="Example: C:\Users\HP\Documents\Incoming">
+                                    <button class="pg-button" id="saveWatchFolderBtn" type="button">Start Watching</button>
+                                    <button class="pg-button-secondary" id="stopWatchFolderBtn" type="button">Stop</button>
+                                </div>
+                                <div id="watchFolderStatus" class="pg-status-box">Watch Folder is off. Point PrivGuard at an inbound folder to secure new files automatically.</div>
+                            </section>
+                        </div>
+
+                        <section class="pg-card">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Security Posture</h2>
+                                    <p class="pg-card-copy">Current local workspace status for privacy operations.</p>
+                                </div>
+                            </div>
+                            <div class="pg-step-list">
+                                <div class="pg-step-row"><div class="pg-cell-strong">Vault Status</div><div>Unlocked</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Processing Mode</div><div>Offline, local only</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Protection Policy</div><div>Automatic redaction and encryption</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Theme</div><div id="settingsThemeStatus">{{ 'Light mode active' if (user.theme or 'dark') == 'light' else 'Dark mode active' }}</div></div>
+                            </div>
+                            <div class="pg-settings-note">Your data is processed locally and never leaves your device.</div>
+                            <div class="pg-settings-actions">
+                                <button class="pg-button-danger" id="logoutBtn" type="button">
+                                    <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.09 15.59 11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"></path></svg>
+                                    Lock PrivGuard
+                                </button>
+                            </div>
+                        </section>
                     </div>
-                </div>
-                <div class="result-block">
-                    <h4>Extracted Text Preview</h4>
-                    <pre id="extractedPreview"></pre>
-                </div>
-            </details>
+                </section>
 
-            <details class="card result-card" id="protectResults" hidden>
-                <summary>Protection Results</summary>
-                <div class="meta" id="protectMeta"></div>
-                <div class="meta" id="qualityMeta"></div>
-                <pre id="protectPreview"></pre>
-                <div id="protectVerifyCta" class="protect-verify-cta" hidden>
-                    <span>Redacted file has been downloaded.</span>
-                    <button type="button" class="btn-verify-cta" onclick="goToVerifyRedaction()">Verify this redaction</button>
-                </div>
-                <div id="protectEncryptCta" class="protect-verify-cta protect-encrypt-cta" hidden>
-                    <span>Encrypted file has been downloaded.</span>
-                    <button type="button" class="btn-verify-cta" onclick="downloadKeyFile()">Download key file</button>
-                    <span class="encrypt-decrypt-hint meta">Keep the key secure. To decrypt: <code>python main.py decrypt --input &lt;.encrypted.txt&gt; --key-path &lt;.key&gt; --output-dir outputs</code></span>
-                </div>
-            </details>
-
-            <details class="card result-card" id="verifyResults" hidden>
-                <summary>Redaction Verification</summary>
-                <div id="verifyMeta"></div>
-                <div id="verifyLeaks"></div>
-            </details>
-        </div>
-
-        <div>
-            <details class="card collapsible-card" id="analyticsSection">
-                <summary>Risk Overview Charts</summary>
-                <canvas id="riskDonutCanvas" class="chart-canvas" width="500" height="180"></canvas>
-                <div class="meta">Risk distribution donut</div>
-                <canvas id="trendCanvas" class="chart-canvas" width="500" height="180"></canvas>
-                <div class="meta">Risk score trend over recent scans</div>
-            </details>
-
-            <details class="card collapsible-card">
-                <summary>Risk Distribution</summary>
-                <div class="bar-wrap">
-                    <div class="bar-label"><span>High</span><span id="riskHighLabel">0</span></div>
-                    <div class="bar"><span id="riskHighBar" class="risk-bar-high"></span></div>
-                </div>
-                <div class="bar-wrap">
-                    <div class="bar-label"><span>Medium</span><span id="riskMediumLabel">0</span></div>
-                    <div class="bar"><span id="riskMediumBar" class="risk-bar-medium"></span></div>
-                </div>
-                <div class="bar-wrap">
-                    <div class="bar-label"><span>Low</span><span id="riskLowLabel">0</span></div>
-                    <div class="bar"><span id="riskLowBar" class="risk-bar-low"></span></div>
-                </div>
-            </details>
-
-            <details class="card collapsible-card">
-                <summary>Entity Totals</summary>
-                <div class="bar-wrap">
-                    <div class="bar-label"><span>National IDs</span><span id="entId">0</span></div>
-                    <div class="bar"><span id="entIdBar"></span></div>
-                </div>
-                <div class="bar-wrap">
-                    <div class="bar-label"><span>Phone Numbers</span><span id="entPhone">0</span></div>
-                    <div class="bar"><span id="entPhoneBar"></span></div>
-                </div>
-                <div class="bar-wrap">
-                    <div class="bar-label"><span>Emails</span><span id="entEmail">0</span></div>
-                    <div class="bar"><span id="entEmailBar"></span></div>
-                </div>
-                <div class="bar-wrap">
-                    <div class="bar-label"><span>KRA PINs</span><span id="entKra">0</span></div>
-                    <div class="bar"><span id="entKraBar"></span></div>
-                </div>
-            </details>
-
-            <details class="card collapsible-card" id="recentSection">
-                <summary>Recent Scans</summary>
-                <div id="recentScans"></div>
-            </details>
-
-            {% if user.role == "admin" %}
-            <div class="card" id="adminSection">
-                <h3>Admin Operations</h3>
-                <div class="ocr-toggle-row">
-                    <label class="toggle-wrap" for="sharpOcrToggle">
-                        <span class="toggle-label">Sharp OCR</span>
-                        <span class="toggle-desc">Better for blurry or unclear photos (upscale, denoise, sharpen)</span>
-                    </label>
-                    <label class="switch" aria-label="Toggle Sharp OCR">
-                        <input type="checkbox" id="sharpOcrToggle" onchange="saveSharpOcr(this.checked)">
-                        <span class="slider"></span>
-                    </label>
-                    <span id="sharpOcrStatus" class="ocr-toggle-status"></span>
-                </div>
-                <button onclick="exportAudit()">Export Signed Audit</button>
-                <button onclick="runRetention()">Run Retention Cleanup</button>
-                <button onclick="runOcrDiagnostics()">OCR Diagnostics</button>
-                <details class="admin-decrypt-panel">
-                    <summary>Decrypt Encrypted Document</summary>
-                    <label for="decryptEncryptedFile">Encrypted File (.encrypted.txt)</label>
-                    <input id="decryptEncryptedFile" type="file" accept=".txt">
-                    <div id="decryptEncryptedFileError" class="input-error" hidden></div>
-                    <label for="decryptSecretKey">Secret Key</label>
-                    <textarea id="decryptSecretKey" rows="3" placeholder="Paste the secret key value here"></textarea>
-                    <div id="decryptSecretKeyError" class="input-error" hidden></div>
-                    <button id="decryptBtn" onclick="decryptFromDashboard()">Decrypt Now</button>
-                    <div id="decryptStatus" class="meta"></div>
-                    <pre id="decryptOutput" hidden></pre>
-                </details>
-                <div id="adminResult"></div>
-            </div>
-            {% endif %}
+                <section id="previewDrawer" class="pg-card pg-preview-drawer hidden">
+                    <div class="pg-card-head">
+                        <div>
+                            <h2 class="pg-card-title">Opened Secure File</h2>
+                            <p class="pg-card-copy">PrivGuard opened the document from the local vault without exposing the wrapped key.</p>
+                        </div>
+                    </div>
+                    <div id="previewMeta" class="pg-inline-box"></div>
+                    <div id="previewContent" class="pg-preview-box"></div>
+                </section>
+            </main>
         </div>
     </div>
 
-    <div id="ariaLiveStatus" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-
-    <div id="profilePanel" class="profile-panel" hidden>
-        <div class="profile-panel-card">
-            <div class="profile-panel-head">
-                <h3>Edit Profile</h3>
-                <button class="icon-btn" type="button" onclick="closeProfilePanel()" aria-label="Close profile panel">x</button>
-            </div>
-            <div class="profile-preview">
-                <div id="profileAvatarPreview" class="avatar-circle avatar-xl">{{ (user.display_name or user.username or "A")[0]|upper }}</div>
-                <div>
-                    <div class="profile-greeting" id="profilePreviewName">{{ user.display_name or user.username }}</div>
-                    <div class="meta">Update your name and avatar</div>
-                </div>
-            </div>
-            <label for="displayNameInput">Display Name</label>
-            <input id="displayNameInput" type="text" value="{{ user.display_name or user.username }}">
-            <label for="avatarInput">Avatar Image</label>
-            <input id="avatarInput" type="file" accept="image/*">
-            <div class="profile-actions">
-                <button id="saveProfileBtn" type="button" onclick="saveProfile()">Save Profile</button>
-                <button class="btn-muted" type="button" onclick="closeProfilePanel()">Cancel</button>
-            </div>
-            <div id="profileStatus" class="meta"></div>
-        </div>
-    </div>
-
-    <div id="accessibilityPanel" class="profile-panel" hidden>
-        <div class="profile-panel-card">
-            <div class="profile-panel-head">
-                <h3>Accessibility Settings</h3>
-                <button class="icon-btn" type="button" onclick="closeAccessibilityPanel()" aria-label="Close accessibility settings">x</button>
-            </div>
-            <label for="highContrastToggle">High Contrast</label>
-            <input id="highContrastToggle" type="checkbox" onchange="saveAccessibilitySettings()">
-            <label for="fontSizeSelect">Font Size</label>
-            <select id="fontSizeSelect" onchange="saveAccessibilitySettings()">
-                <option value="default">Default</option>
-                <option value="large">Large</option>
-                <option value="xlarge">Extra Large</option>
-            </select>
-            <label for="reduceMotionToggle">Reduce Motion</label>
-            <input id="reduceMotionToggle" type="checkbox" onchange="saveAccessibilitySettings()">
-            <label for="dyslexiaToggle">Dyslexia-friendly Reading</label>
-            <input id="dyslexiaToggle" type="checkbox" onchange="saveAccessibilitySettings()">
-            <div id="accessibilityStatus" class="meta"></div>
-            <div class="profile-actions">
-                <button class="btn-muted" type="button" onclick="closeAccessibilityPanel()">Close</button>
-            </div>
-        </div>
-    </div>
-
-<script>
-let lastScanData = null;
-let recommendedAction = "redact";
-let lastDashboardSummary = null;
-let currentProfile = {
-    username: "{{ user.username }}",
-    display_name: "{{ user.display_name or user.username }}",
-    avatar_url: "{{ user.avatar_url or '' }}",
-};
-
-function badgeClass(level) {
-    if (level === "High") return "high";
-    if (level === "Medium") return "medium";
-    if (level === "Low") return "low";
-    return "safe";
-}
-
-function renderAdminResult(kind, data) {
-    const container = document.getElementById("adminResult");
-    if (!container) return;
-    if (!data || data.error) {
-        container.innerHTML = `<div class="meta">⚠ ${data && data.error ? data.error : "Operation failed."}</div>`;
-        return;
-    }
-    if (kind === "audit") {
-        const exported = data.records_exported ?? data.count ?? "n/a";
-        container.innerHTML = `
-            <div class="meta"><strong>Signed audit export completed.</strong></div>
-            <div class="meta">Records: <strong>${exported}</strong></div>
-            ${data.path ? `<div class="meta">File: <code>${data.path}</code></div>` : ""}
-        `;
-        return;
-    }
-    if (kind === "retention") {
-        const deleted = data.files_deleted ?? data.records_deleted ?? "n/a";
-        const kept = data.files_kept ?? data.records_kept ?? "n/a";
-        container.innerHTML = `
-            <div class="meta"><strong>Retention cleanup completed.</strong></div>
-            <div class="meta">Deleted: <strong>${deleted}</strong> &nbsp;|&nbsp; Kept: <strong>${kept}</strong></div>
-        `;
-        return;
-    }
-    if (kind === "ocr") {
-        const ok = data.ok ?? data.status === "ok";
-        container.innerHTML = `
-            <div class="meta"><strong>OCR diagnostics:</strong> <span class="${ok ? "ok" : "fail"}">${ok ? "READY" : "ISSUE"}</span></div>
-            ${data.tesseract_path ? `<div class="meta">Tesseract: <code>${data.tesseract_path}</code></div>` : ""}
-        `;
-        return;
-    }
-    container.innerHTML = `<div class="meta">${Object.keys(data).length ? "Operation completed." : "No data."}</div>`;
-}
-
-function renderVerifyLeaks(leakedItems) {
-    const container = document.getElementById("verifyLeaks");
-    if (!container) return;
-    const leaks = leakedItems || [];
-    if (!leaks.length) {
-        container.innerHTML = `<div class="meta">No leaked items detected.</div>`;
-        return;
-    }
-    const rows = leaks.slice(0, 10).map(item => {
-        const type = item.data_type || item.type || "unknown";
-        const value = item.value || "";
-        return `<tr><td>${type}</td><td>${value}</td></tr>`;
-    }).join("");
-    const more = leaks.length > 10 ? `<div class="meta">+${leaks.length - 10} more not shown.</div>` : "";
-    container.innerHTML = `
-        <div class="meta"><strong>Leaked items (showing up to 10):</strong></div>
-        <table class="leak-table">
-            <thead><tr><th>Type</th><th>Value</th></tr></thead>
-            <tbody>${rows}</tbody>
-        </table>
-        ${more}
-    `;
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function setTimelineMode(mode) {
-    const title = document.getElementById("timelineTitle");
-    const labels = [
-        "Upload Received",
-        "Extracting Content",
-        "Detecting Sensitive Data",
-        "Classifying Risk",
-        "Completed",
-    ];
-    if (mode === "protect") {
-        labels[2] = "Finding Sensitive Targets";
-        labels[3] = "Applying Protection Action";
-    }
-    if (mode === "verify") {
-        labels[1] = "Reading Original and Protected Files";
-        labels[2] = "Detecting Original Sensitive Data";
-        labels[3] = "Comparing for Potential Leaks";
-    }
-    title.textContent =
-        mode === "scan" ? "Scan Timeline" :
-        mode === "protect" ? "Protection Timeline" :
-        "Verification Timeline";
-    for (let i = 0; i < 5; i += 1) {
-        document.getElementById(`timelineLabel${i}`).textContent = labels[i];
-    }
-}
-
-function updateTimeline(stepIndex, statusText) {
-    const progressBar = document.getElementById("timelineProgressBar");
-    document.getElementById("timelineStatus").textContent = statusText;
-    const pct = Math.max(0, Math.min(100, (stepIndex / 4) * 100));
-    progressBar.style.width = `${pct}%`;
-    for (let i = 0; i < 5; i += 1) {
-        const step = document.getElementById(`timelineStep${i}`);
-        step.classList.remove("active");
-        step.classList.remove("done");
-        if (i < stepIndex) step.classList.add("done");
-        if (i === stepIndex) step.classList.add("active");
-    }
-}
-
-async function animateTimeline(mode) {
-    setTimelineMode(mode);
-    updateTimeline(0, "Upload received");
-    await sleep(180);
-    updateTimeline(1, "Extracting content");
-    await sleep(220);
-    updateTimeline(2, "Detecting sensitive entities");
-    await sleep(220);
-    updateTimeline(3, mode === "protect" ? "Applying protection action" : "Classifying risk");
-}
-
-function completeTimeline(success) {
-    updateTimeline(4, success ? "Completed successfully" : "Failed");
-}
-
-function setGuideStep(activeKey) {
-    const ids = {
-        upload: "guideStepUpload",
-        scan: "guideStepScan",
-        review: "guideStepReview",
-        protect: "guideStepProtect",
-    };
-    Object.values(ids).forEach(id => document.getElementById(id).classList.remove("active"));
-    if (ids[activeKey]) document.getElementById(ids[activeKey]).classList.add("active");
-}
-
-function flattenFindings(findings) {
-    const priority = {kra_pins: 1, national_ids: 2, emails: 3, phone_numbers: 4};
-    const list = [];
-    for (const key in findings) {
-        (findings[key] || []).forEach(item => {
-            list.push({
-                type: key,
-                value: item.value || "",
-                confidence: Number(item.confidence || 0),
-                p: priority[key] || 99,
-            });
-        });
-    }
-    list.sort((a, b) => (a.p - b.p) || (b.confidence - a.confidence));
-    return list;
-}
-
-function renderFindingsViews(findings) {
-    const flat = flattenFindings(findings);
-    const top = flat.slice(0, 3);
-    const topHtml = top.map(item => `
-        <div class="finding-item">
-            <span class="finding-type">${item.type}</span>
-            <span class="finding-value">${item.value}</span>
-        </div>
-    `).join("");
-    document.getElementById("topFindings").innerHTML = topHtml || "<div class='meta'>No sensitive findings.</div>";
-
-    const allHtml = flat.map(item => `
-        <div class="finding-item">
-            <span class="finding-type">${item.type}</span>
-            <span class="finding-value">${item.value} (conf: ${item.confidence.toFixed(2)})</span>
-        </div>
-    `).join("");
-    document.getElementById("findings").innerHTML = allHtml || "<div class='meta'>No sensitive findings.</div>";
-}
-
-function recommendActionFromScan(data) {
-    const counts = data.counts || {};
-    const hasStrong = (counts.national_ids || 0) + (counts.kra_pins || 0) > 0;
-    if (data.risk_level === "High" || hasStrong) {
-        return {
-            action: "redact",
-            text: "Redact sensitive identifiers before sharing.",
-        };
-    }
-    if (data.risk_level === "Medium") {
-        return {
-            action: "encrypt",
-            text: "Encrypt document for secure storage and transfer.",
-        };
-    }
-    return {
-        action: "encrypt",
-        text: "Encrypt for added protection; risk is currently low.",
-    };
-}
-
-function showRecommendation(data) {
-    const rec = recommendActionFromScan(data);
-    recommendedAction = rec.action;
-    document.getElementById("recommendationText").textContent = rec.text;
-    document.getElementById("recommendationBanner").hidden = false;
-}
-
-function toggleAllFindings() {
-    const container = document.getElementById("allFindingsContainer");
-    const btn = document.getElementById("toggleAllFindingsBtn");
-    container.hidden = !container.hidden;
-    btn.textContent = container.hidden ? "View All Findings" : "Hide All Findings";
-}
-
-function tryCopyScanFileToProtect() {
-    const scanInput = document.getElementById("scanFile");
-    const protectInput = document.getElementById("protectFile");
-    if (protectInput.files && protectInput.files.length > 0) return;
-    if (!(scanInput.files && scanInput.files.length > 0)) return;
-    const dt = new DataTransfer();
-    dt.items.add(scanInput.files[0]);
-    protectInput.files = dt.files;
-    document.getElementById("protectFilePill").textContent = `Selected: ${scanInput.files[0].name}`;
-}
-
-function applyRecommendedAction() {
-    document.getElementById("protectAction").value = recommendedAction;
-    tryCopyScanFileToProtect();
-    setGuideStep("protect");
-    protectFile();
-}
-
-function applyTheme(theme) {
-    document.body.setAttribute("data-theme", theme);
-    if (lastDashboardSummary) renderSummary(lastDashboardSummary);
-}
-
-function toggleTheme() {
-    const current = document.body.getAttribute("data-theme") || "light";
-    const next = current === "dark" ? "light" : "dark";
-    applyTheme(next);
-    localStorage.setItem("pg-theme", next);
-}
-
-function hideStartupSplash() {
-    const splash = document.getElementById("startupSplash");
-    if (!splash) return;
-    if (window.gsap) {
-        gsap.to(splash, {
-            opacity: 0,
-            duration: 0.45,
-            ease: "power2.inOut",
-            onComplete: () => {
-                splash.style.display = "none";
-                animateDashboardEntry();
-            },
-        });
-        return;
-    }
-    splash.classList.add("is-hidden");
-    setTimeout(() => {
-        splash.style.display = "none";
-        animateDashboardEntry();
-    }, 320);
-}
-
-function jumpToSection(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (el.tagName === "DETAILS") {
-        el.open = true;
-    }
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function announceStatus(message) {
-    const node = document.getElementById("ariaLiveStatus");
-    if (!node) return;
-    node.textContent = "";
-    window.setTimeout(() => {
-        node.textContent = message;
-    }, 10);
-}
-
-function setInputError(id, message) {
-    const node = document.getElementById(id);
-    if (!node) return;
-    node.hidden = !message;
-    node.textContent = message || "";
-}
-
-function clearInputErrors(ids) {
-    ids.forEach(id => setInputError(id, ""));
-}
-
-function focusResultCard(activeId) {
-    ["scanResults", "protectResults", "verifyResults"].forEach(id => {
-        const card = document.getElementById(id);
-        if (!card) return;
-        card.open = id === activeId;
-    });
-}
-
-function openProfilePanel() {
-    const panel = document.getElementById("profilePanel");
-    panel.removeAttribute("hidden");
-    panel.classList.add("open");
-}
-
-function closeProfilePanel() {
-    const panel = document.getElementById("profilePanel");
-    panel.classList.remove("open");
-    panel.setAttribute("hidden", "hidden");
-}
-
-function openAccessibilityPanel() {
-    const panel = document.getElementById("accessibilityPanel");
-    panel.removeAttribute("hidden");
-    panel.classList.add("open");
-}
-
-function closeAccessibilityPanel() {
-    const panel = document.getElementById("accessibilityPanel");
-    panel.classList.remove("open");
-    panel.setAttribute("hidden", "hidden");
-}
-
-function applyAccessibilitySettings({ highContrast, fontScale, reduceMotion, dyslexiaMode }) {
-    document.body.setAttribute("data-contrast", highContrast ? "high" : "normal");
-    document.body.setAttribute("data-font-scale", fontScale || "default");
-    document.body.setAttribute("data-reduced-motion", reduceMotion ? "true" : "false");
-    document.body.setAttribute("data-dyslexia", dyslexiaMode ? "true" : "false");
-}
-
-function loadAccessibilitySettings() {
-    const settings = {
-        highContrast: localStorage.getItem("pg-high-contrast") === "true",
-        fontScale: localStorage.getItem("pg-font-scale") || "default",
-        reduceMotion: localStorage.getItem("pg-reduce-motion") === "true",
-        dyslexiaMode: localStorage.getItem("pg-dyslexia-mode") === "true",
-    };
-    applyAccessibilitySettings(settings);
-    const hc = document.getElementById("highContrastToggle");
-    const fs = document.getElementById("fontSizeSelect");
-    const rm = document.getElementById("reduceMotionToggle");
-    const dm = document.getElementById("dyslexiaToggle");
-    if (hc) hc.checked = settings.highContrast;
-    if (fs) fs.value = settings.fontScale;
-    if (rm) rm.checked = settings.reduceMotion;
-    if (dm) dm.checked = settings.dyslexiaMode;
-}
-
-function saveAccessibilitySettings() {
-    const highContrast = !!document.getElementById("highContrastToggle")?.checked;
-    const fontScale = document.getElementById("fontSizeSelect")?.value || "default";
-    const reduceMotion = !!document.getElementById("reduceMotionToggle")?.checked;
-    const dyslexiaMode = !!document.getElementById("dyslexiaToggle")?.checked;
-    localStorage.setItem("pg-high-contrast", String(highContrast));
-    localStorage.setItem("pg-font-scale", fontScale);
-    localStorage.setItem("pg-reduce-motion", String(reduceMotion));
-    localStorage.setItem("pg-dyslexia-mode", String(dyslexiaMode));
-    applyAccessibilitySettings({ highContrast, fontScale, reduceMotion, dyslexiaMode });
-    const status = document.getElementById("accessibilityStatus");
-    if (status) {
-        status.textContent = "Accessibility settings saved.";
-        setTimeout(() => { status.textContent = ""; }, 1800);
-    }
-    announceStatus("Accessibility settings updated.");
-}
-
-function renderProfile(profile) {
-    currentProfile = { ...currentProfile, ...profile };
-    const display = currentProfile.display_name || currentProfile.username || "Admin";
-    const initial = (display[0] || "A").toUpperCase();
-    const avatarUrl = currentProfile.avatar_url || "";
-
-    const profileGreeting = document.getElementById("profileGreeting");
-    if (profileGreeting) profileGreeting.textContent = "Hello there welcome to";
-    const namePreview = document.getElementById("profilePreviewName");
-    if (namePreview) namePreview.textContent = display;
-    const displayInput = document.getElementById("displayNameInput");
-    if (displayInput) displayInput.value = display;
-
-    const avatar = document.getElementById("profileAvatar");
-    const avatarPreview = document.getElementById("profileAvatarPreview");
-    [avatar, avatarPreview].forEach(node => {
-        if (!node) return;
-        if (avatarUrl) {
-            node.innerHTML = "";
-            node.style.backgroundImage = `url('${avatarUrl}')`;
-            node.style.backgroundSize = "cover";
-            node.style.backgroundPosition = "center";
-            node.textContent = "";
-        } else {
-            node.style.backgroundImage = "";
-            node.textContent = initial;
-        }
-    });
-}
-
-async function loadProfile() {
-    try {
-        const res = await fetch("/api/profile");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.profile) renderProfile(data.profile);
-    } catch (_) {
-        // Keep dashboard usable even if profile loading fails.
-    }
-}
-
-async function saveProfile() {
-    const btn = document.getElementById("saveProfileBtn");
-    const status = document.getElementById("profileStatus");
-    const displayName = document.getElementById("displayNameInput").value.trim();
-    const avatarFile = document.getElementById("avatarInput").files[0];
-    const form = new FormData();
-    form.append("display_name", displayName);
-    if (avatarFile) form.append("avatar", avatarFile);
-
-    btn.disabled = true;
-    btn.textContent = "Saving...";
-    status.textContent = "";
-    try {
-        const res = await fetch("/api/profile", { method: "POST", body: form });
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || "Profile update failed");
-        renderProfile(data.profile || {});
-        status.textContent = "Profile updated.";
-        closeProfilePanel();
-    } catch (error) {
-        status.textContent = error.message;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Save Profile";
-    }
-}
-
-function runStartupAnimations() {
-    if (!window.gsap) return;
-    gsap.fromTo(".startup-logo", { scale: 0.82, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.8)" });
-    gsap.fromTo(".startup-title", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, delay: 0.15, ease: "power2.out" });
-    gsap.fromTo(".startup-subtitle", { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, delay: 0.28, ease: "power2.out" });
-    gsap.fromTo(".startup-credit", { opacity: 0 }, { opacity: 0.95, duration: 0.5, delay: 0.45, ease: "sine.out" });
-}
-
-function animateDashboardEntry() {
-    if (!window.gsap) return;
-    gsap.fromTo(".topbar", { y: -18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55, ease: "power2.out" });
-    gsap.fromTo(".cards4 .card", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, stagger: 0.08, ease: "power2.out", delay: 0.08 });
-    gsap.fromTo(".layout > div .card", { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, stagger: 0.06, ease: "power2.out", delay: 0.16 });
-}
-
-function setBarWidth(id, value, total) {
-    const pct = total > 0 ? Math.min(100, (value / total) * 100) : 0;
-    document.getElementById(id).style.width = `${pct}%`;
-}
-
-function themeVar(name, fallback) {
-    const value = getComputedStyle(document.body).getPropertyValue(name).trim();
-    return value || fallback;
-}
-
-function renderSummary(summary) {
-    lastDashboardSummary = summary || {};
-    const docs = summary.documents_scanned || 0;
-    const entities = summary.entity_totals || {};
-    const entityTotal = (entities.national_ids || 0) + (entities.phone_numbers || 0) + (entities.emails || 0) + (entities.kra_pins || 0);
-
-    document.getElementById("kpiDocs").textContent = docs;
-    document.getElementById("kpiAvgRisk").textContent = summary.average_risk_score ?? 0;
-    document.getElementById("kpiHighRatio").textContent = `${summary.high_risk_ratio ?? 0}%`;
-    document.getElementById("kpiEntities").textContent = entityTotal;
-
-    const risks = summary.risk_distribution || {High: 0, Medium: 0, Low: 0};
-    const riskTotal = risks.High + risks.Medium + risks.Low;
-    document.getElementById("riskHighLabel").textContent = risks.High;
-    document.getElementById("riskMediumLabel").textContent = risks.Medium;
-    document.getElementById("riskLowLabel").textContent = risks.Low;
-    setBarWidth("riskHighBar", risks.High, riskTotal);
-    setBarWidth("riskMediumBar", risks.Medium, riskTotal);
-    setBarWidth("riskLowBar", risks.Low, riskTotal);
-
-    const maxEntity = Math.max(1, entities.national_ids || 0, entities.phone_numbers || 0, entities.emails || 0, entities.kra_pins || 0);
-    document.getElementById("entId").textContent = entities.national_ids || 0;
-    document.getElementById("entPhone").textContent = entities.phone_numbers || 0;
-    document.getElementById("entEmail").textContent = entities.emails || 0;
-    document.getElementById("entKra").textContent = entities.kra_pins || 0;
-    setBarWidth("entIdBar", entities.national_ids || 0, maxEntity);
-    setBarWidth("entPhoneBar", entities.phone_numbers || 0, maxEntity);
-    setBarWidth("entEmailBar", entities.emails || 0, maxEntity);
-    setBarWidth("entKraBar", entities.kra_pins || 0, maxEntity);
-    drawRiskDonut("riskDonutCanvas", risks);
-    drawTrendLine("trendCanvas", summary.trend_scores || []);
-}
-
-function drawRiskDonut(canvasId, risks) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const w = canvas.width;
-    const h = canvas.height;
-    const cx = w / 2;
-    const cy = h / 2;
-    const radius = Math.min(w, h) * 0.34;
-    const inner = radius * 0.58;
-    const total = (risks.High || 0) + (risks.Medium || 0) + (risks.Low || 0);
-
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = themeVar("--pg-card", "#ffffff");
-    ctx.fillRect(0, 0, w, h);
-    if (total === 0) {
-        ctx.fillStyle = themeVar("--pg-text-muted", "#6b7280");
-        ctx.font = "14px Outfit";
-        ctx.textAlign = "center";
-        ctx.fillText("No risk data yet", cx, cy);
-        return;
-    }
-
-    const segments = [
-        {key: "High", value: risks.High || 0, color: "#dc2626"},
-        {key: "Medium", value: risks.Medium || 0, color: "#f59e0b"},
-        {key: "Low", value: risks.Low || 0, color: "#22c55e"},
-    ];
-    let start = -Math.PI / 2;
-    segments.forEach(seg => {
-        const angle = (seg.value / total) * Math.PI * 2;
-        if (angle <= 0) return;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.arc(cx, cy, radius, start, start + angle);
-        ctx.closePath();
-        ctx.fillStyle = seg.color;
-        ctx.fill();
-        start += angle;
-    });
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, inner, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill();
-
-    ctx.fillStyle = themeVar("--pg-text", "#111111");
-    ctx.font = "bold 16px Outfit";
-    ctx.textAlign = "center";
-    ctx.fillText(`${total} scans`, cx, cy + 4);
-}
-
-function drawTrendLine(canvasId, scores) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const w = canvas.width;
-    const h = canvas.height;
-    const pad = 28;
-
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = themeVar("--pg-card", "#ffffff");
-    ctx.fillRect(0, 0, w, h);
-
-    // axes
-    ctx.strokeStyle = themeVar("--pg-border", "#d1d5db");
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(pad, pad);
-    ctx.lineTo(pad, h - pad);
-    ctx.lineTo(w - pad, h - pad);
-    ctx.stroke();
-
-    if (!scores.length) {
-        ctx.fillStyle = themeVar("--pg-text-muted", "#6b7280");
-        ctx.font = "14px Outfit";
-        ctx.fillText("No trend data yet", w / 2 - 45, h / 2);
-        return;
-    }
-
-    const max = 100;
-    const min = 0;
-    const xStep = scores.length > 1 ? (w - pad * 2) / (scores.length - 1) : 0;
-    ctx.strokeStyle = "#006b3f";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    scores.forEach((v, i) => {
-        const x = pad + i * xStep;
-        const y = h - pad - ((v - min) / (max - min)) * (h - pad * 2);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-}
-
-function bindDropzone(dropzoneId, inputId, pillId) {
-    const dropzone = document.getElementById(dropzoneId);
-    const input = document.getElementById(inputId);
-    const pill = document.getElementById(pillId);
-    if (!dropzone || !input || !pill) return;
-
-    const updatePill = () => {
-        const file = input.files && input.files[0];
-        pill.textContent = file ? `Selected: ${file.name}` : `No ${inputId.includes("scan") ? "scan" : "protect"} file selected`;
-    };
-
-    input.addEventListener("change", updatePill);
-    ["dragenter", "dragover"].forEach(evt => {
-        dropzone.addEventListener(evt, e => {
-            e.preventDefault();
-            dropzone.classList.add("dragover");
-        });
-    });
-    ["dragleave", "drop"].forEach(evt => {
-        dropzone.addEventListener(evt, e => {
-            e.preventDefault();
-            dropzone.classList.remove("dragover");
-        });
-    });
-    dropzone.addEventListener("drop", e => {
-        const files = e.dataTransfer.files;
-        if (!files || !files.length) return;
-        const dt = new DataTransfer();
-        dt.items.add(files[0]);
-        input.files = dt.files;
-        updatePill();
-    });
-}
-
-async function scanFile() {
-    const file = document.getElementById("scanFile").files[0];
-    clearInputErrors(["scanFileError"]);
-    if (!file) {
-        setInputError("scanFileError", "Please select a file to scan.");
-        announceStatus("Please select a file to scan.");
-        return;
-    }
-    setGuideStep("scan");
-    const btn = document.getElementById("scanBtn");
-    btn.disabled = true;
-    btn.textContent = "Scanning...";
-
-    const formData = new FormData();
-    formData.append("file", file);
-    try {
-        await animateTimeline("scan");
-        const res = await fetch("/scan", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || "Scan failed");
-
-        const scanResults = document.getElementById("scanResults");
-        scanResults.hidden = false;
-        scanResults.open = true;
-        focusResultCard("scanResults");
-        document.getElementById("riskContainer").innerHTML =
-            `<span class="badge ${badgeClass(data.risk_level)}">${data.risk_level} RISK</span>`;
-        document.getElementById("riskScore").textContent = `Risk Score: ${data.risk_score}/100`;
-        document.getElementById("riskInsights").innerHTML = data.insights.map(i => `- ${i}`).join("<br>");
-
-        renderFindingsViews(data.findings || {});
-        showRecommendation(data);
-        lastScanData = data;
-        document.getElementById("extractedPreview").textContent = data.extracted_preview || "(no extracted text)";
-        loadRecentScans();
-        completeTimeline(true);
-        setGuideStep("review");
-        announceStatus(`Scan completed. ${data.risk_level} risk identified.`);
-    } catch (error) {
-        completeTimeline(false);
-        alert(error.message);
-        announceStatus("Scan failed.");
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Scan";
-    }
-}
-
-async function protectFile() {
-    const file = document.getElementById("protectFile").files[0];
-    const action = document.getElementById("protectAction").value;
-    clearInputErrors(["protectFileError"]);
-    if (!file) {
-        setInputError("protectFileError", "Please select a file to protect.");
-        announceStatus("Please select a file to protect.");
-        return;
-    }
-    setGuideStep("protect");
-    const btn = document.getElementById("protectBtn");
-    btn.disabled = true;
-    btn.textContent = "Processing...";
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("action", action);
-
-    try {
-        await animateTimeline("protect");
-        const res = await fetch("/protect", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || "Protection failed");
-
-        const protectResults = document.getElementById("protectResults");
-        protectResults.hidden = false;
-        protectResults.open = true;
-        focusResultCard("protectResults");
-        document.getElementById("protectMeta").innerHTML =
-            `Action: <strong>${data.action}</strong> | Output: <strong>${data.output_file}</strong>` +
-            (data.key_file ? ` | Key: <strong>${data.key_file}</strong>` : "");
-
-        if (data.quality) {
-            const statusClass = data.quality.quality_status === "PASS" ? "ok" : "fail";
-            document.getElementById("qualityMeta").innerHTML =
-                `Redaction Quality: <span class="${statusClass}">${data.quality.quality_status}</span> | Coverage: ${data.quality.coverage_percent}% | Leaks: ${data.quality.leak_count}`;
-        } else {
-            document.getElementById("qualityMeta").textContent = "Quality metrics are available for redaction actions.";
-        }
-        document.getElementById("protectPreview").textContent = data.preview || "";
-
-        if (data.action === "redact" && (data.download_filename || data.output_file)) {
-            const downloadName = data.download_filename || data.output_file.split(/[/\\]/).pop();
-            const downloadUrl = "/download-output/" + encodeURIComponent(downloadName);
-            const a = document.createElement("a");
-            a.href = downloadUrl;
-            a.download = downloadName;
-            a.style.display = "none";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window._lastRedactedFilename = downloadName;
-            document.getElementById("protectVerifyCta").hidden = false;
-            document.getElementById("protectEncryptCta").hidden = true;
-        } else if (data.action === "encrypt") {
-            const encName = data.download_filename || (data.output_file && data.output_file.split(/[/\\]/).pop());
-            if (encName) {
-                const a = document.createElement("a");
-                a.href = "/download-output/" + encodeURIComponent(encName);
-                a.download = encName;
-                a.style.display = "none";
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
-            window._lastKeyFilename = data.key_filename || (data.key_file && data.key_file.split(/[/\\]/).pop());
-            document.getElementById("protectVerifyCta").hidden = true;
-            document.getElementById("protectEncryptCta").hidden = false;
-        } else {
-            document.getElementById("protectVerifyCta").hidden = true;
-            document.getElementById("protectEncryptCta").hidden = true;
-        }
-
-        completeTimeline(true);
-        announceStatus(`Protection completed with ${data.action}.`);
-    } catch (error) {
-        completeTimeline(false);
-        alert(error.message);
-        announceStatus("Protection failed.");
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Protect";
-    }
-}
-
-function goToVerifyRedaction() {
-    const verifySection = document.getElementById("verifySection");
-    verifySection.scrollIntoView({ behavior: "smooth", block: "start" });
-    const hint = document.getElementById("verifyHint");
-    const name = window._lastRedactedFilename || "the redacted file";
-    const safeName = String(name).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    hint.innerHTML = `Upload the downloaded file <strong>${safeName}</strong> as <strong>Protected file</strong>, and your original document as <strong>Original file</strong>, then click Verify.`;
-    hint.hidden = false;
-}
-
-function downloadKeyFile() {
-    const name = window._lastKeyFilename;
-    if (!name) return;
-    const a = document.createElement("a");
-    a.href = "/download-key/" + encodeURIComponent(name);
-    a.download = name;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-}
-
-async function verifyRedaction() {
-    const original = document.getElementById("originalFile").files[0];
-    const protectedFile = document.getElementById("protectedFile").files[0];
-    clearInputErrors(["verifyOriginalError", "verifyProtectedError"]);
-    if (!original || !protectedFile) {
-        if (!original) setInputError("verifyOriginalError", "Original file is required.");
-        if (!protectedFile) setInputError("verifyProtectedError", "Protected file is required.");
-        announceStatus("Both original and protected files are required.");
-        return;
-    }
-    const btn = document.getElementById("verifyBtn");
-    btn.disabled = true;
-    btn.textContent = "Verifying...";
-
-    const formData = new FormData();
-    formData.append("original", original);
-    formData.append("protected", protectedFile);
-
-    try {
-        await animateTimeline("verify");
-        const res = await fetch("/verify-redaction", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || "Verification failed");
-
-        const verifyResults = document.getElementById("verifyResults");
-        verifyResults.hidden = false;
-        verifyResults.open = true;
-        focusResultCard("verifyResults");
-        const statusClass = data.quality_status === "PASS" ? "ok" : "fail";
-        document.getElementById("verifyMeta").innerHTML =
-            `Status: <span class="${statusClass}">${data.quality_status}</span> | Coverage: ${data.coverage_percent}% | Leaks: ${data.leak_count}/${data.total_sensitive_items}`;
-        renderVerifyLeaks(data.leaked_items);
-        completeTimeline(true);
-        announceStatus(`Verification complete. Status ${data.quality_status}.`);
-    } catch (error) {
-        completeTimeline(false);
-        alert(error.message);
-        announceStatus("Verification failed.");
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Verify";
-    }
-}
-
-async function loadRecentScans() {
-    const response = await fetch("/api/dashboard-data");
-    if (response.status === 401) {
-        window.location.href = "/login";
-        return;
-    }
-    const data = await response.json();
-    renderSummary(data.summary || {});
-    const html = (data.recent_scans || []).map(scan =>
-        `<div class="recent-row"><strong>${scan.filename}</strong> <span class="badge ${badgeClass(scan.risk_level)}">${scan.risk_level} (${scan.risk_score}/100)</span></div>`
-    ).join("");
-    document.getElementById("recentScans").innerHTML = html || "<div class='meta'>No scans yet.</div>";
-}
-
-async function logout() {
-    await fetch("/logout", { method: "POST" });
-    window.location.href = "/login";
-}
-
-async function exportAudit() {
-    const res = await fetch("/admin/export-audit", { method: "POST" });
-    const data = await res.json();
-    renderAdminResult("audit", data);
-}
-
-async function runRetention() {
-    const res = await fetch("/admin/retention-cleanup", { method: "POST" });
-    const data = await res.json();
-    renderAdminResult("retention", data);
-}
-
-async function runOcrDiagnostics() {
-    const res = await fetch("/admin/ocr-diagnostics", { method: "POST" });
-    const data = await res.json();
-    renderAdminResult("ocr", data);
-}
-
-async function decryptFromDashboard() {
-    const encryptedFile = document.getElementById("decryptEncryptedFile").files[0];
-    const secretKey = document.getElementById("decryptSecretKey").value.trim();
-    const btn = document.getElementById("decryptBtn");
-    const status = document.getElementById("decryptStatus");
-    const output = document.getElementById("decryptOutput");
-
-    clearInputErrors(["decryptEncryptedFileError", "decryptSecretKeyError"]);
-    if (!encryptedFile) {
-        setInputError("decryptEncryptedFileError", "Upload an encrypted file first.");
-        announceStatus("Encrypted file is required.");
-        return;
-    }
-    if (!secretKey) {
-        setInputError("decryptSecretKeyError", "Paste the secret key.");
-        announceStatus("Secret key is required.");
-        return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = "Decrypting...";
-    status.textContent = "";
-    output.hidden = true;
-    output.textContent = "";
-    const formData = new FormData();
-    formData.append("encrypted_file", encryptedFile);
-    formData.append("secret_key", secretKey);
-
-    try {
-        const res = await fetch("/admin/decrypt", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || "Decryption failed");
-        status.innerHTML = `<span class="ok">Decryption successful</span> (${data.decrypted_chars || 0} characters)`;
-        output.textContent = data.decrypted_text || "";
-        output.hidden = false;
-        announceStatus("Decryption successful.");
-    } catch (error) {
-        status.innerHTML = `<span class="fail">${error.message}</span>`;
-        announceStatus("Decryption failed.");
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Decrypt Now";
-    }
-}
-
-function clearWorkspace() {
-    const byId = (id) => document.getElementById(id);
-    ["scanResults", "protectResults", "verifyResults"].forEach(id => {
-        const section = byId(id);
-        if (!section) return;
-        section.hidden = true;
-        section.open = false;
-    });
-    if (byId("recommendationBanner")) byId("recommendationBanner").hidden = true;
-    if (byId("allFindingsContainer")) byId("allFindingsContainer").hidden = true;
-    if (byId("toggleAllFindingsBtn")) byId("toggleAllFindingsBtn").textContent = "View All Findings";
-    if (byId("verifyHint")) byId("verifyHint").hidden = true;
-    if (byId("protectVerifyCta")) byId("protectVerifyCta").hidden = true;
-    if (byId("protectEncryptCta")) byId("protectEncryptCta").hidden = true;
-    if (byId("decryptOutput")) {
-        byId("decryptOutput").hidden = true;
-        byId("decryptOutput").textContent = "";
-    }
-    if (byId("decryptStatus")) byId("decryptStatus").textContent = "";
-    if (byId("extractedPreview")) byId("extractedPreview").textContent = "";
-    if (byId("protectPreview")) byId("protectPreview").textContent = "";
-    if (byId("verifyLeaks")) byId("verifyLeaks").innerHTML = "";
-    if (byId("riskContainer")) byId("riskContainer").innerHTML = "";
-    if (byId("riskScore")) byId("riskScore").textContent = "";
-    if (byId("riskInsights")) byId("riskInsights").textContent = "";
-    if (byId("scanFilePill")) byId("scanFilePill").textContent = "No scan file selected";
-    if (byId("protectFilePill")) byId("protectFilePill").textContent = "No protect file selected";
-    if (byId("scanFile")) byId("scanFile").value = "";
-    if (byId("protectFile")) byId("protectFile").value = "";
-    if (byId("originalFile")) byId("originalFile").value = "";
-    if (byId("protectedFile")) byId("protectedFile").value = "";
-    if (byId("decryptEncryptedFile")) byId("decryptEncryptedFile").value = "";
-    if (byId("decryptSecretKey")) byId("decryptSecretKey").value = "";
-    clearInputErrors([
-        "scanFileError",
-        "protectFileError",
-        "verifyOriginalError",
-        "verifyProtectedError",
-        "decryptEncryptedFileError",
-        "decryptSecretKeyError",
-    ]);
-    updateTimeline(0, "Idle");
-    setGuideStep("upload");
-    announceStatus("Workspace cleared.");
-}
-
-async function loadOcrSettings() {
-    const toggle = document.getElementById("sharpOcrToggle");
-    if (!toggle) return;
-    try {
-        const res = await fetch("/api/ocr-settings");
-        if (!res.ok) return;
-        const data = await res.json();
-        toggle.checked = !!data.sharp_preprocessing;
-    } catch (_) {}
-}
-
-async function saveSharpOcr(checked) {
-    const status = document.getElementById("sharpOcrStatus");
-    if (!status) return;
-    status.textContent = "";
-    try {
-        const res = await fetch("/api/ocr-settings", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sharp_preprocessing: checked }),
-        });
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || "Failed to save");
-        status.textContent = "Saved";
-        status.classList.remove("err");
-        setTimeout(() => { status.textContent = ""; }, 2000);
-    } catch (e) {
-        status.textContent = "Error";
-        status.classList.add("err");
-    }
-}
-
-window.onload = async () => {
-    const startupDelay = new Promise(resolve => setTimeout(resolve, 4000));
-    const savedTheme = localStorage.getItem("pg-theme") || "light";
-    applyTheme(savedTheme);
-    runStartupAnimations();
-    loadAccessibilitySettings();
-    renderProfile(currentProfile);
-    await Promise.all([loadRecentScans(), startupDelay]);
-    await loadProfile();
-    await loadOcrSettings();
-    hideStartupSplash();
-};
-bindDropzone("scanDropzone", "scanFile", "scanFilePill");
-document.getElementById("protectFile").addEventListener("change", () => {
-    const file = document.getElementById("protectFile").files[0];
-    document.getElementById("protectFilePill").textContent = file
-        ? `Selected: ${file.name}`
-        : "No protect file selected";
-});
-document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    closeProfilePanel();
-    closeAccessibilityPanel();
-});
-setTimelineMode("scan");
-updateTimeline(0, "Idle");
-setGuideStep("upload");
-</script>
-</div>
+    <script src="{{ url_for('static', filename='js/privguard-workspace.js') }}"></script>
 </body>
 </html>

@@ -1,7 +1,22 @@
-version: "1.0.0"
+﻿version: "1.0.0"
 audit:
   database_path: "instance/privguard_audit.db"
   enabled: true
+
+vault:
+  root_dir: "vault"
+  state_path: "instance/vault_state.json"
+  directories:
+    originals: "Originals"
+    redacted: "Redacted"
+    encrypted: "Encrypted"
+    reports: "Reports"
+    keys: "Keys"
+    logs: "Logs"
+
+watch_folder:
+  state_path: "instance/watch_folder_state.json"
+  poll_seconds: 3
 
 # OCR: sharp preprocessing for unclear/blurry photos (images and scanned PDFs)
 ocr:
@@ -34,4 +49,4 @@ retention:
     - "keys"
 export:
   export_dir: "exports"
-  signing_key_path: "keys/audit_signing.key"
+  signing_key_path: "vault/Keys/audit_signing.key"

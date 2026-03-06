@@ -1,0 +1,64 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PrivGuard AI Launch</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/privguard-cyber-ui.css') }}">
+</head>
+<body class="pg-launch-body" data-theme="{{ user.theme or 'dark' }}">
+    <div class="pg-launch-shell">
+        <section class="pg-launch-card">
+            <div class="pg-launch-top">
+                <div>
+                    <div class="pg-brand-row">
+                        <div class="pg-brand-mark" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M12 2L4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3zm3.2 9.1l-3.86 3.86a1 1 0 0 1-1.42 0l-1.92-1.92 1.41-1.42 1.22 1.22 3.16-3.15 1.41 1.41z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="pg-overline">PrivGuard AI</div>
+                            <div class="pg-brand-text">Secure Launch</div>
+                        </div>
+                    </div>
+                    <h1 class="pg-launch-title">Preparing your secure workspace.</h1>
+                    <p class="pg-launch-copy">PrivGuard is loading the vault, PDF and OCR scanners, AI detection models, and the automated protection workflow before the dashboard is revealed.</p>
+                </div>
+                <div class="pg-launch-stats">
+                    <div class="pg-launch-stat">
+                        <span>User</span>
+                        <strong>{{ user.display_name or user.username }}</strong>
+                    </div>
+                    <div class="pg-launch-stat">
+                        <span>Vault</span>
+                        <strong>Unlocked</strong>
+                    </div>
+                    <div class="pg-launch-stat">
+                        <span>Mode</span>
+                        <strong>Offline + Automated</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pg-launch-progress">
+                <div class="pg-overline"><span class="pg-pulse"></span>Launch in progress</div>
+                <div class="pg-progress-track">
+                    <div class="pg-progress-bar"></div>
+                </div>
+                <div class="pg-launch-phase-list">
+                    <div class="pg-launch-phase"><span>Initialize secure vault</span><span>Ready</span></div>
+                    <div class="pg-launch-phase"><span>Load scanners and PDF parsing</span><span>Ready</span></div>
+                    <div class="pg-launch-phase"><span>Prepare protection workspace</span><span>Starting dashboard</span></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        window.setTimeout(() => {
+            window.location.replace('/dashboard');
+        }, 3000);
+    </script>
+</body>
+</html>
