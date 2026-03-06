@@ -4,8 +4,14 @@ patterns:
   phone_numbers: "(?<!\\w)(?:\\+254|0)(?:7\\d{8}|1\\d{8})(?!\\w)"
   emails: "\\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[A-Za-z]{2,}\\b"
   kra_pins: "\\b[A-Z]\\d{9}[A-Z]\\b"
+  passwords: "(?i)\\b(?:password|passcode|pwd|secret(?:\\s+key)?|login\\s+code)\\b\\s*[:=-]?\\s*([^\\s,;]+)"
+  financial_info: "(?i)\\b(?:account(?:\\s+number)?|acct(?:\\s+no\\.?|\\s+number)?|bank\\s+account|card(?:\\s+number)?|salary|balance|amount\\s+due|invoice(?:\\s+amount)?|payment|mpesa(?:\\s+reference)?)\\b\\s*[:=-]?\\s*((?:KES|KSH|KSh|USD|EUR|GBP|\\$)?\\s?(?:\\d[\\d, .-]{3,}|(?:\\d{4}[- ]?){3}\\d{4}))"
+  personal_names: "(?m)(?i)\\b(?:full\\s+name|name|employee|student|customer|client|beneficiary|recipient|payee)\\b\\s*[:=-]?\\s*([A-Z][a-z]+(?:[ '-][A-Z][a-z]+){1,3})"
 type_keywords:
   email: ["email", "e-mail", "contact", "address"]
   phone: ["phone", "mobile", "tel", "contact"]
   national_id: ["id", "national", "identity", "citizen", "number"]
   kra_pin: ["kra", "pin", "tax", "revenue", "identifier"]
+  password: ["password", "passcode", "secret", "login", "credential"]
+  financial_info: ["salary", "bank", "account", "payment", "balance", "invoice", "amount"]
+  personal_name: ["name", "employee", "student", "customer", "beneficiary", "client"]

@@ -1,7 +1,11 @@
-cryptography
-rich
+﻿cryptography
 pillow
 pytesseract
 pyyaml
 pypdf
 pymupdf
+opencv-python
+numpy
+python-docx
+flask
+werkzeug

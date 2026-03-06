@@ -34,3 +34,8 @@ exports/
 pilot/evidence_pack_*/
 pilot/evidence_pack_*.zip
 reports/scan_sample.json
+
+# Local desktop runtime artifacts
+.venv/
+vault/
+static/uploads/avatars/
