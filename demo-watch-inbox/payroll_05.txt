@@ -1,0 +1,9 @@
+﻿Payroll Report Batch 5
+Employee: Esther Achieng
+National ID: 67890123
+KRA PIN: E567890123F
+Phone: 0756789012
+Email: admin@countyforms.go.ke
+Salary Account: 5566778899001
+Monthly Net Pay: KES 53750
+Payroll Password Reset Token: PAY5-SECURE-2026

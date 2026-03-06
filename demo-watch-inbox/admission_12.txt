@@ -1,0 +1,7 @@
+﻿Student Admission Form 12
+Applicant Name: Lilian Chebet
+Guardian Phone: 0723456789
+Guardian Email: ops@equityexample.co.ke
+National ID: 34567890
+Fee Wallet Account: 2201345567890
+Medical Notes Password: school12!pass

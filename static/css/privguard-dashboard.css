@@ -1035,3 +1035,59 @@ pre {
     transform: none;
   }
 }
+
+.automation-row {
+  margin-top: var(--pg-s2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px;
+  border: 1px solid var(--pg-border);
+  border-radius: var(--pg-r-input);
+  background: var(--pg-surface);
+}
+
+.automation-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 230px;
+}
+
+.automation-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pg-text);
+}
+
+.automation-sub {
+  font-size: 12px;
+  color: var(--pg-text-muted);
+}
+
+.yes-no-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  background: rgba(0, 0, 0, 0.4);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.yes-no-card {
+  width: min(420px, 94vw);
+  background: var(--pg-card);
+  border: 1px solid var(--pg-border);
+  border-radius: var(--pg-r-card);
+  padding: var(--pg-s4);
+  box-shadow: var(--pg-shadow-md);
+}
+
+.yes-no-actions {
+  margin-top: var(--pg-s3);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

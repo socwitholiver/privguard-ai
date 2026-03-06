@@ -1,0 +1,9 @@
+﻿Payroll Report Batch 7
+Employee: George Kiptoo
+National ID: 89012345
+KRA PIN: G789012345H
+Phone: 0778901234
+Email: finance@kilimo.co.ke
+Salary Account: 7788990011223
+Monthly Net Pay: KES 57250
+Payroll Password Reset Token: PAY7-SECURE-2026

@@ -1,0 +1,9 @@
+﻿Payroll Report Batch 9
+Employee: Ian Kariuki
+National ID: 11223344
+KRA PIN: J901234567K
+Phone: 0790123456
+Email: legal@ushahidi.co.ke
+Salary Account: 9900112233445
+Monthly Net Pay: KES 60750
+Payroll Password Reset Token: PAY9-SECURE-2026
