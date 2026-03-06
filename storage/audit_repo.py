@@ -1,17 +1,24 @@
-"""Audit repository helpers."""
+﻿"""Audit repository helpers."""
 
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+from config_loader import load_system_config
 from security.vault import ensure_vault_layout, get_vault_paths
 from storage.db import get_conn, init_db
 
 
+SYSTEM_CONFIG = load_system_config()
+AUDIT_CONFIG = SYSTEM_CONFIG.get("audit", {})
+RETENTION_CONFIG = SYSTEM_CONFIG.get("retention", {})
 LOG_FILE_PATH = get_vault_paths()["logs"] / "privguard-events.jsonl"
+ARCHIVE_ROOT = Path(AUDIT_CONFIG.get("archive_root", "audit activity"))
+AUDIT_RETENTION_DAYS = int(RETENTION_CONFIG.get("audit_retention_days", 30))
 
 
 def _append_log_line(payload: Dict[str, Any]) -> None:
@@ -21,7 +28,87 @@ def _append_log_line(payload: Dict[str, Any]) -> None:
         handle.write(json.dumps(payload) + "\n")
 
 
+def _parse_timestamp(value: str) -> datetime:
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        parsed = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _archive_path_for(timestamp: datetime) -> Path:
+    year_dir = ARCHIVE_ROOT / str(timestamp.year)
+    year_dir.mkdir(parents=True, exist_ok=True)
+    return year_dir / f"{timestamp.strftime('%B')}.txt"
+
+
+def archive_expired_audit_events(now: datetime | None = None) -> int:
+    init_db()
+    current_time = now or datetime.now(timezone.utc)
+    cutoff = current_time - timedelta(days=AUDIT_RETENTION_DAYS)
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, created_at, event_type, actor, source, details_json
+            FROM audit_events
+            ORDER BY created_at ASC, id ASC
+            """
+        ).fetchall()
+
+        expired = []
+        for row in rows:
+            created_at = _parse_timestamp(str(row[1]))
+            if created_at <= cutoff:
+                expired.append(
+                    {
+                        "id": row[0],
+                        "created_at": created_at,
+                        "event_type": row[2],
+                        "actor": row[3],
+                        "source": row[4],
+                        "details": json.loads(row[5] or "{}"),
+                    }
+                )
+
+        if not expired:
+            return 0
+
+        grouped: dict[Path, list[dict]] = defaultdict(list)
+        for record in expired:
+            grouped[_archive_path_for(record["created_at"])].append(record)
+
+        for archive_path, records in grouped.items():
+            with archive_path.open("a", encoding="utf-8") as handle:
+                if archive_path.stat().st_size == 0:
+                    month_label = records[0]["created_at"].strftime("%B %Y")
+                    handle.write(f"PrivGuard Audit Archive - {month_label}\n")
+                    handle.write("=" * 72 + "\n\n")
+                for record in records:
+                    handle.write(f"Timestamp: {record['created_at'].isoformat()}\n")
+                    handle.write(f"Event: {record['event_type']}\n")
+                    handle.write(f"Actor: {record['actor']}\n")
+                    handle.write(f"Source: {record['source']}\n")
+                    if record["details"].get("document_id"):
+                        handle.write(f"Document ID: {record['details']['document_id']}\n")
+                    handle.write(f"Details: {json.dumps(record['details'], ensure_ascii=True)}\n")
+                    handle.write("-" * 72 + "\n")
+
+        conn.executemany(
+            "DELETE FROM audit_events WHERE id = ?",
+            [(record["id"],) for record in expired],
+        )
+
+    return len(expired)
+
+
 def log_audit_event(event_type: str, actor: str, source: str, details: Dict[str, Any]) -> None:
+    archive_expired_audit_events()
     init_db()
     with get_conn() as conn:
         conn.execute(
@@ -133,6 +220,7 @@ def summarize_scan_events(limit: int = 50) -> dict:
 
 
 def list_recent_audit_events(limit: int = 25) -> List[dict]:
+    archive_expired_audit_events()
     init_db()
     with get_conn() as conn:
         rows = conn.execute(

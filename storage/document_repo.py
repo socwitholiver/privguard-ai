@@ -1,4 +1,4 @@
-﻿"""Document metadata repository for the PrivGuard secure vault."""
+"""Document metadata repository for the PrivGuard secure vault."""
 
 from __future__ import annotations
 
@@ -7,8 +7,22 @@ from typing import Any, Dict, List, Optional
 
 from storage.db import get_conn, init_db
 
-
 ARTIFACT_ORDER = ["original", "redacted", "masked", "encrypted", "report", "key"]
+UPDATABLE_DOCUMENT_FIELDS = {
+    "original_path",
+    "status",
+    "owner",
+    "department",
+    "retention_days",
+    "retention_until",
+    "expiry_action",
+    "policy_name",
+    "lifecycle_status",
+    "lifecycle_next_action",
+    "archive_path",
+    "archived_at",
+    "deleted_at",
+}
 
 
 def generate_document_id(year: str) -> str:
@@ -33,8 +47,10 @@ def create_document_record(
     total_sensitive_items: int,
     actor: str,
     status: str = "SCANNED",
+    lifecycle: Optional[Dict[str, Any]] = None,
 ) -> dict:
     init_db()
+    lifecycle = lifecycle or {}
     payload = {
         "document_id": document_id,
         "original_filename": original_filename,
@@ -48,6 +64,17 @@ def create_document_record(
         "primary_action": str(risk.get("primary_action", "allow")),
         "status": status,
         "actor": actor,
+        "owner": str(lifecycle.get("owner", "Operations")),
+        "department": str(lifecycle.get("department", "Operations")),
+        "retention_days": int(lifecycle.get("retention_days", 180)),
+        "retention_until": str(lifecycle.get("retention_until", "")),
+        "expiry_action": str(lifecycle.get("expiry_action", "review")),
+        "policy_name": str(lifecycle.get("policy_name", "Default retention policy")),
+        "lifecycle_status": str(lifecycle.get("lifecycle_status", "active")),
+        "lifecycle_next_action": str(lifecycle.get("next_action", "Monitor lifecycle")),
+        "archive_path": str(lifecycle.get("archive_path", "")),
+        "archived_at": lifecycle.get("archived_at"),
+        "deleted_at": lifecycle.get("deleted_at"),
     }
     with get_conn() as conn:
         conn.execute(
@@ -64,8 +91,19 @@ def create_document_record(
                 recommendations_json,
                 primary_action,
                 status,
-                actor
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                actor,
+                owner,
+                department,
+                retention_days,
+                retention_until,
+                expiry_action,
+                policy_name,
+                lifecycle_status,
+                lifecycle_next_action,
+                archive_path,
+                archived_at,
+                deleted_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload["document_id"],
@@ -80,6 +118,17 @@ def create_document_record(
                 payload["primary_action"],
                 payload["status"],
                 payload["actor"],
+                payload["owner"],
+                payload["department"],
+                payload["retention_days"],
+                payload["retention_until"],
+                payload["expiry_action"],
+                payload["policy_name"],
+                payload["lifecycle_status"],
+                payload["lifecycle_next_action"],
+                payload["archive_path"],
+                payload["archived_at"],
+                payload["deleted_at"],
             ),
         )
     return get_document(document_id) or {}
@@ -91,6 +140,25 @@ def update_document_status(document_id: str, status: str) -> None:
         conn.execute(
             "UPDATE documents SET status = ? WHERE document_id = ?",
             (status, document_id),
+        )
+
+
+def update_document_fields(document_id: str, **fields: Any) -> None:
+    init_db()
+    assignments = []
+    values = []
+    for key, value in fields.items():
+        if key not in UPDATABLE_DOCUMENT_FIELDS:
+            continue
+        assignments.append(f"{key} = ?")
+        values.append(value)
+    if not assignments:
+        return
+    values.append(document_id)
+    with get_conn() as conn:
+        conn.execute(
+            f"UPDATE documents SET {', '.join(assignments)} WHERE document_id = ?",
+            tuple(values),
         )
 
 
@@ -119,8 +187,24 @@ def record_artifact(
     return get_latest_artifact(document_id, artifact_type) or {}
 
 
+def update_artifact_location(artifact_id: int, file_path: str, filename: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    init_db()
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE document_artifacts SET file_path = ?, filename = ?, metadata_json = ? WHERE id = ?",
+            (file_path, filename, json.dumps(metadata or {}), artifact_id),
+        )
+
+
+def delete_artifacts_for_document(document_id: str) -> None:
+    init_db()
+    with get_conn() as conn:
+        conn.execute("DELETE FROM document_artifacts WHERE document_id = ?", (document_id,))
+
+
 def _row_to_document(row) -> dict:
     return {
+        "id": row[0],
         "document_id": row[1],
         "created_at": row[2],
         "original_filename": row[3],
@@ -134,6 +218,17 @@ def _row_to_document(row) -> dict:
         "primary_action": row[11],
         "status": row[12],
         "actor": row[13],
+        "owner": row[14],
+        "department": row[15],
+        "retention_days": row[16],
+        "retention_until": row[17],
+        "expiry_action": row[18],
+        "policy_name": row[19],
+        "lifecycle_status": row[20],
+        "lifecycle_next_action": row[21],
+        "archive_path": row[22],
+        "archived_at": row[23],
+        "deleted_at": row[24],
     }
 
 
@@ -226,7 +321,9 @@ def vault_summary() -> dict:
                 COUNT(*),
                 SUM(CASE WHEN status = 'SCANNED' THEN 1 ELSE 0 END),
                 SUM(CASE WHEN status IN ('PROTECTED', 'SECURED') THEN 1 ELSE 0 END),
-                SUM(CASE WHEN status = 'REVIEW_REQUIRED' THEN 1 ELSE 0 END)
+                SUM(CASE WHEN status = 'REVIEW_REQUIRED' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN lifecycle_status = 'archived' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN lifecycle_status = 'deleted' THEN 1 ELSE 0 END)
             FROM documents
             """
         ).fetchone()
@@ -235,12 +332,13 @@ def vault_summary() -> dict:
                 "SELECT artifact_type, COUNT(*) FROM document_artifacts GROUP BY artifact_type"
             ).fetchall()
         )
-    total, scanned_only, protected, review_required = row or (0, 0, 0, 0)
+    total, scanned_only, protected, review_required, archived, deleted = row or (0, 0, 0, 0, 0, 0)
     return {
         "documents_total": int(total or 0),
         "pending_protection": int(scanned_only or 0),
         "protected_documents": int(protected or 0),
         "review_required": int(review_required or 0),
+        "archived_documents": int(archived or 0),
+        "deleted_documents": int(deleted or 0),
         "artifact_counts": {key: int(value) for key, value in artifact_counts.items()},
     }
-

@@ -1,11 +1,11 @@
-﻿# PrivGuard AI
+# PrivGuard AI
 
 PrivGuard AI is an offline-first privacy protection pipeline for sensitive documents.
 
 The product flow is intentionally minimal:
 
 1. Log in.
-2. Drop a document into the dashboard, or enable a watch folder.
+2. Choose any folder on the local machine and enable it as the watch folder.
 3. PrivGuard scans, classifies risk, redacts what should be shared, encrypts high-risk originals, stores outputs in the local vault, and generates a compliance report automatically.
 
 ## Current Workflow

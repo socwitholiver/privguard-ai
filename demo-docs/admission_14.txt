@@ -1,0 +1,7 @@
+﻿Student Admission Form 14
+Applicant Name: Naomi Wangari
+Guardian Phone: 0745678901
+Guardian Email: admissions@baraka.ac.ke
+National ID: 56789012
+Fee Wallet Account: 4455667788990
+Medical Notes Password: school14!pass

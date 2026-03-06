@@ -1,0 +1,7 @@
+﻿Student Admission Form 11
+Applicant Name: Kevin Mutua
+Guardian Phone: 0712345678
+Guardian Email: records@uhuru.co.ke
+National ID: 23456789
+Fee Wallet Account: 0112233445566
+Medical Notes Password: school11!pass

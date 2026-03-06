@@ -1,4 +1,4 @@
-"""Master-password protected vault helpers for PRIVGUARD AI."""
+﻿"""Master-password protected vault helpers for PRIVGUARD AI."""
 
 from __future__ import annotations
 
@@ -40,6 +40,10 @@ _RUNTIME: Dict[str, object] = {
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def get_default_master_key() -> str:
+    return str(load_system_config().get("vault", {}).get("default_master_key", "admin254"))
 
 
 def get_vault_paths() -> Dict[str, Path]:
@@ -86,11 +90,16 @@ def vault_is_configured() -> bool:
     return bool(state.get("password_hash") and state.get("salt"))
 
 
+def vault_uses_system_master_key() -> bool:
+    state = _load_state()
+    return bool(state.get("password_hash") and state.get("salt") and state.get("key_mode") == "system")
+
+
 def vault_is_unlocked() -> bool:
     return bool(_RUNTIME.get("unlocked") and _RUNTIME.get("master_key"))
 
 
-def unlock_vault(master_password: str, username: str | None = None) -> dict:
+def unlock_vault(master_password: str, username: str | None = None, *, key_mode: str = "user") -> dict:
     if not master_password:
         raise ValueError("Master password is required.")
 
@@ -105,6 +114,7 @@ def unlock_vault(master_password: str, username: str | None = None) -> dict:
             "created_at": _utc_now(),
             "password_hash": generate_password_hash(master_password),
             "salt": salt_b64,
+            "key_mode": key_mode,
         }
         _save_state(state)
         created = True
@@ -122,8 +132,48 @@ def unlock_vault(master_password: str, username: str | None = None) -> dict:
         "unlocked": True,
         "unlocked_by": _RUNTIME["unlocked_by"],
         "unlocked_at": _RUNTIME["unlocked_at"],
+        "key_mode": state.get("key_mode", key_mode),
         "paths": {name: str(path) for name, path in get_vault_paths().items()},
     }
+
+
+def change_master_password(current_password: str, new_password: str) -> dict:
+    if not new_password:
+        raise ValueError("A new master password is required.")
+    ensure_vault_layout()
+    state = _load_state()
+    if not state:
+        raise ValueError("Vault is not configured.")
+    if not check_password_hash(state.get("password_hash", ""), current_password):
+        raise ValueError("Current master password is invalid.")
+
+    old_master_key = _derive_master_key(current_password, state["salt"])
+    key_dir = get_vault_paths()["keys"]
+    decrypted_keys: dict[Path, bytes] = {}
+    for key_path in key_dir.glob("*.key.json"):
+        payload = json.loads(key_path.read_text(encoding="utf-8"))
+        token = str(payload.get("encrypted_key", ""))
+        if not token:
+            continue
+        decrypted_keys[key_path] = Fernet(old_master_key).decrypt(token.encode("utf-8"))
+
+    salt_b64 = base64.urlsafe_b64encode(secrets.token_bytes(16)).decode("utf-8")
+    new_master_key = _derive_master_key(new_password, salt_b64)
+    for key_path, plain_key in decrypted_keys.items():
+        payload = json.loads(key_path.read_text(encoding="utf-8"))
+        payload["encrypted_key"] = Fernet(new_master_key).encrypt(plain_key).decode("utf-8")
+        key_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    key_mode = state.get("key_mode", "user")
+    state["password_hash"] = generate_password_hash(new_password)
+    state["salt"] = salt_b64
+    state["key_mode"] = key_mode
+    _save_state(state)
+
+    _RUNTIME["master_key"] = new_master_key
+    _RUNTIME["unlocked"] = True
+    _RUNTIME["unlocked_at"] = _utc_now()
+    return vault_status()
 
 
 def lock_vault() -> None:
@@ -181,6 +231,7 @@ def vault_status() -> dict:
         "unlocked_by": _RUNTIME.get("unlocked_by"),
         "unlocked_at": _RUNTIME.get("unlocked_at"),
         "created_at": state.get("created_at"),
+        "key_mode": state.get("key_mode", "user"),
         "paths": {name: str(path) for name, path in paths.items()},
         "file_counts": file_counts,
     }

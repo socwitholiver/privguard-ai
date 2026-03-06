@@ -9,3 +9,4 @@ numpy
 python-docx
 flask
 werkzeug
+watchdog

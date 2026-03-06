@@ -42,23 +42,16 @@
 
             <section class="pg-auth-form">
                 <h2 class="pg-form-title">Unlock PrivGuard</h2>
-                <p class="pg-form-copy">Authenticate once to unlock the local vault and enter the secure workspace.</p>
+                <p class="pg-form-copy">Authenticate once to unlock and enter the secure workspace.</p>
 
                 <div class="pg-input-group">
                     <label for="username">Username</label>
                     <input id="username" class="pg-input" type="text" placeholder="admin">
                 </div>
                 <div class="pg-input-group">
-                    <label for="password">Master Password</label>
+                    <label for="password">Password</label>
                     <input id="password" class="pg-input" type="password" placeholder="Enter your password">
                 </div>
-                <details class="pg-master-toggle">
-                    <summary>Use a separate vault password</summary>
-                    <div class="pg-input-group">
-                        <label for="masterPassword">Separate Master Password</label>
-                        <input id="masterPassword" class="pg-input" type="password" placeholder="Optional separate master password">
-                    </div>
-                </details>
                 <div class="pg-auth-actions">
                     <button class="pg-button" id="loginButton" type="button">Unlock PrivGuard</button>
                     <div id="error" class="pg-auth-error hidden"></div>
@@ -73,18 +66,14 @@
         async function login() {
             const username = document.getElementById("username").value.trim();
             const password = document.getElementById("password").value.trim();
-            const masterPassword = document.getElementById("masterPassword").value.trim();
             const errorEl = document.getElementById("error");
             errorEl.classList.add("hidden");
             errorEl.textContent = "";
 
-            const body = { username, password };
-            if (masterPassword) body.master_password = masterPassword;
-
             const res = await fetch("/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
+                body: JSON.stringify({ username, password }),
             });
             const data = await res.json();
             if (!res.ok) {
@@ -102,3 +91,4 @@
     </script>
 </body>
 </html>
+

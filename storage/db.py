@@ -69,10 +69,32 @@ def init_db() -> None:
                 recommendations_json TEXT NOT NULL,
                 primary_action TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'SCANNED',
-                actor TEXT NOT NULL
+                actor TEXT NOT NULL,
+                owner TEXT NOT NULL DEFAULT 'Operations',
+                department TEXT NOT NULL DEFAULT 'Operations',
+                retention_days INTEGER NOT NULL DEFAULT 180,
+                retention_until TEXT,
+                expiry_action TEXT NOT NULL DEFAULT 'review',
+                policy_name TEXT NOT NULL DEFAULT 'Default retention policy',
+                lifecycle_status TEXT NOT NULL DEFAULT 'active',
+                lifecycle_next_action TEXT NOT NULL DEFAULT 'Monitor lifecycle',
+                archive_path TEXT NOT NULL DEFAULT '',
+                archived_at TEXT,
+                deleted_at TEXT
             )
             """
         )
+        _ensure_column(conn, "documents", "owner", "TEXT NOT NULL DEFAULT 'Operations'")
+        _ensure_column(conn, "documents", "department", "TEXT NOT NULL DEFAULT 'Operations'")
+        _ensure_column(conn, "documents", "retention_days", "INTEGER NOT NULL DEFAULT 180")
+        _ensure_column(conn, "documents", "retention_until", "TEXT")
+        _ensure_column(conn, "documents", "expiry_action", "TEXT NOT NULL DEFAULT 'review'")
+        _ensure_column(conn, "documents", "policy_name", "TEXT NOT NULL DEFAULT 'Default retention policy'")
+        _ensure_column(conn, "documents", "lifecycle_status", "TEXT NOT NULL DEFAULT 'active'")
+        _ensure_column(conn, "documents", "lifecycle_next_action", "TEXT NOT NULL DEFAULT 'Monitor lifecycle'")
+        _ensure_column(conn, "documents", "archive_path", "TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "documents", "archived_at", "TEXT")
+        _ensure_column(conn, "documents", "deleted_at", "TEXT")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS document_artifacts (

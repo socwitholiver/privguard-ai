@@ -25,7 +25,7 @@
                     <span class="pg-icon-shell" id="themeToggleIcon" aria-hidden="true"></span>
                     <span id="themeToggleLabel">Light mode</span>
                 </button>
-                <div class="pg-vault-pill"><span class="pg-dot"></span>Vault Unlocked</div>
+                <div class="pg-vault-pill pg-vault-pill-locked" id="vaultStatusPill"><span class="pg-dot" id="vaultStatusDot"></span><span id="vaultStatusText">Vault Locked</span></div>
                 <div class="pg-user-chip">
                     <div class="pg-avatar-stack">
                         <img id="topUserAvatarImage" class="pg-user-avatar-image{% if not user.avatar_url %} hidden{% endif %}" src="{{ user.avatar_url or '' }}" alt="Profile avatar">
@@ -46,9 +46,9 @@
                         <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm10 8h8V3h-8v18zM3 21h8v-6H3v6z"></path></svg>
                         <span class="pg-nav-label">Dashboard</span>
                     </button>
-                    <button class="pg-nav-btn" type="button" data-screen="scan">
-                        <svg viewBox="0 0 24 24"><path d="M9 3v2H5v4H3V3h6zm12 0v6h-2V5h-4V3h6zM5 15v4h4v2H3v-6h2zm16 0v6h-6v-2h4v-4h2zM7 11h10v2H7z"></path></svg>
-                        <span class="pg-nav-label">Scan Document</span>
+                    <button class="pg-nav-btn" type="button" data-screen="watch">
+                        <svg viewBox="0 0 24 24"><path d="M12 4a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 13H7a5 5 0 1 1 5 5c-1.38 0-2.5 1.12-2.5 2.5V22h5v-1.5c0-.28.22-.5.5-.5a9 9 0 0 0 0-18z"></path></svg>
+                        <span class="pg-nav-label">Watch Folder</span>
                     </button>
                     <button class="pg-nav-btn" type="button" data-screen="vault">
                         <svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 0 0-4 4v2H6c-1.1 0-2 .9-2 2v10h16V10c0-1.1-.9-2-2-2h-2V6a4 4 0 0 0-4-4zm-2 6V6a2 2 0 1 1 4 0v2h-4zm2 8.75A1.75 1.75 0 1 1 12 13a1.75 1.75 0 0 1 0 3.5z"></path></svg>
@@ -63,7 +63,7 @@
                         <span class="pg-nav-label">Settings</span>
                     </button>
                 </nav>
-                <div class="pg-sidebar-foot">Offline AI privacy controls with Kenyan-sensitive document protection workflows.</div>
+                <div class="pg-sidebar-foot">Offline AI privacy controls running as a silent background security layer for Kenyan-sensitive document workflows.</div>
             </aside>
 
             <main class="pg-main">
@@ -71,12 +71,12 @@
                     <div class="pg-screen-head">
                         <div>
                             <h1 class="pg-screen-title">PrivGuard AI - Secure Workspace</h1>
-                            <p class="pg-screen-copy">A cybersecurity control center for privacy protection. Scan documents, inspect risk, and manage secure outputs from one local workspace.</p>
+                            <p class="pg-screen-copy">PrivGuard now works as a watch-folder protection layer. You point it at a folder, drop documents there, and the engine scans, redacts, encrypts, and stores artifacts in the background.</p>
                         </div>
                         <div class="pg-screen-actions">
-                            <button class="pg-button" id="protectDocumentBtn" type="button">
-                                <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5H5v14h14V5zm-2 8h-3v3h-4v-3H7V9h3V6h4v3h3v4z"></path></svg>
-                                Protect a Document
+                            <button class="pg-button" id="openWatchFolderBtn" type="button">
+                                <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 13H7a5 5 0 1 1 5 5c-1.38 0-2.5 1.12-2.5 2.5V22h5v-1.5c0-.28.22-.5.5-.5a9 9 0 0 0 0-18z"></path></svg>
+                                Configure Watch Folder
                             </button>
                         </div>
                     </div>
@@ -85,105 +85,136 @@
                         <article class="pg-metric-card">
                             <span>Documents Scanned</span>
                             <strong id="metricScanned">0</strong>
-                            <p>Files processed locally by the AI privacy engine.</p>
+                            <p>Files processed automatically by the background engine.</p>
                         </article>
                         <article class="pg-metric-card">
                             <span>Protected Outputs</span>
                             <strong id="metricProtected">0</strong>
-                            <p>Redacted and encrypted outputs currently available.</p>
+                            <p>Redacted and encrypted outputs saved in the secure vault.</p>
                         </article>
                         <article class="pg-metric-card">
                             <span>High Risk Alerts</span>
                             <strong id="metricHighRisk">0</strong>
-                            <p>Recent files that triggered high-risk protection.</p>
+                            <p>Recent files that triggered strict protection rules.</p>
                         </article>
                     </div>
 
-                    <section class="pg-card">
-                        <div class="pg-card-head">
-                            <div>
-                                <h2 class="pg-card-title">Recent Activity</h2>
-                                <p class="pg-card-copy">Recent documents processed by PrivGuard AI with risk level and final protection status.</p>
+                    <div class="pg-monitor-grid">
+                        <section class="pg-card">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Background Engine</h2>
+                                    <p class="pg-card-copy">Watch-folder mode removes manual upload. The folder is the inbox, PrivGuard does the rest.</p>
+                                </div>
+                                <span id="dashboardWatchBadge" class="pg-badge pg-badge-risk-safe">Watch Off</span>
                             </div>
-                        </div>
-                        <div class="pg-table-wrap">
-                            <table class="pg-table">
-                                <thead>
-                                    <tr>
-                                        <th>File Name</th>
-                                        <th>Risk Level</th>
-                                        <th>Protection Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dashboardTableBody"></tbody>
-                            </table>
-                        </div>
-                    </section>
+                            <div class="pg-step-list">
+                                <div class="pg-step-row"><div class="pg-cell-strong">Current Folder</div><div id="dashboardWatchPath">Not configured</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Last Scan</div><div id="dashboardWatchLastScan">No activity yet</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Latest Protected File</div><div id="dashboardLatestFile">Waiting for watch-folder input</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Latest Outcome</div><div id="dashboardLatestOutcome">No protected output yet</div></div>
+                            </div>
+                            <div class="pg-status-box">Choose any folder on this machine that contains documents you want PrivGuard to scan, redact, and encrypt automatically while the dashboard updates.</div>
+                        </section>
+
+                        <section class="pg-card">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Recent Activity</h2>
+                                    <p class="pg-card-copy">Recent documents processed by PrivGuard AI with risk level and final protection status.</p>
+                                </div>
+                            </div>
+                            <div class="pg-table-wrap">
+                                <table class="pg-table">
+                                    <thead>
+                                        <tr>
+                                            <th>File Name</th>
+                                            <th>Risk Level</th>
+                                            <th>Protection Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dashboardTableBody"></tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </div>
                 </section>
 
-                <section class="pg-screen" data-screen="scan">
+                <section class="pg-screen" data-screen="watch">
                     <div class="pg-screen-head">
                         <div>
-                            <h1 class="pg-screen-title">Scan Document</h1>
-                            <p class="pg-screen-copy">Drop a document into the protection engine. PrivGuard extracts text, detects sensitive data, classifies risk, and applies protection automatically.</p>
-                        </div>
-                        <div class="pg-screen-actions">
-                            <button class="pg-button" id="scanProtectBtn" type="button">
-                                <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H5a2 2 0 0 0-2 2v14l4-4h12a2 2 0 0 0 2-2V8l-7-5zm-2 13v-3H9v-2h3V8h2v3h3v2h-3v3h-2z"></path></svg>
-                                Protect Document
-                            </button>
+                            <h1 class="pg-screen-title">Watch Folder</h1>
+                            <p class="pg-screen-copy">This is the only document intake path. Configure a folder, drop files into it, and PrivGuard protects them automatically in the background.</p>
                         </div>
                     </div>
 
-                    <section class="pg-card">
-                        <input id="fileInput" type="file" accept=".txt,.md,.csv,.log,.pdf,.docx,.png,.jpg,.jpeg,.bmp,.tiff,.webp" hidden>
-                        <div id="dropzone" class="pg-upload-zone">
-                            <div class="pg-upload-kicker">Scan + Protect</div>
-                            <div class="pg-upload-title">Drop document here to protect it</div>
-                            <div class="pg-upload-copy">PrivGuard supports PDF, DOCX, text files, and image-based documents. Sensitive data such as IDs, phone numbers, emails, passwords, and financial information are detected and secured automatically.</div>
-                            <div class="pg-chip-row">
-                                <span class="pg-chip">Kenyan IDs</span>
-                                <span class="pg-chip">KRA PINs</span>
-                                <span class="pg-chip">Emails</span>
-                                <span class="pg-chip">Passwords</span>
-                                <span class="pg-chip">Financial Data</span>
-                            </div>
-                        </div>
-                        <div id="selectedFileLabel" class="pg-inline-box">No document selected yet.</div>
-                        <div id="scanStatus" class="pg-status-box">PrivGuard is ready. Upload a document to start scanning.</div>
-                    </section>
-
-                    <div id="scanResultPanel" class="pg-result-grid hidden">
-                        <section class="pg-card pg-result-panel">
+                    <div class="pg-monitor-grid">
+                        <section class="pg-card">
                             <div class="pg-card-head">
                                 <div>
-                                    <h2 class="pg-card-title">Sensitive Data Detected</h2>
-                                    <p class="pg-card-copy">AI risk analysis with automatic policy enforcement.</p>
+                                    <h2 class="pg-card-title">Configure Intake Folder</h2>
+                                    <p class="pg-card-copy">Point PrivGuard at a local folder. Every supported file placed there will be scanned, classified, redacted, encrypted if required, and stored in the vault.</p>
                                 </div>
-                                <span id="scanRiskBadge" class="pg-badge pg-badge-risk-safe">Safe</span>
+                                <span id="watchBadge" class="pg-badge pg-badge-risk-safe">Watch Off</span>
                             </div>
-                            <div id="scanSummary" class="pg-inline-box"></div>
-                            <div id="scanRiskBreakdown" class="pg-report-grid"></div>
-                            <div class="pg-detection-panel">
-                                <div>
-                                    <h3 class="pg-card-title">Detection Results</h3>
-                                    <p class="pg-card-copy">Color-coded findings with risk level per data type.</p>
-                                </div>
-                                <div id="scanDetections" class="pg-detection-list"></div>
+                            <div class="pg-upload-actions">
+                                <div class="pg-folder-display" id="watchFolderPathDisplay">No folder selected</div>
+                                <input id="watchFolderPath" type="hidden" value="">
+                                <button class="pg-button" id="pickWatchFolderBtn" type="button">Browse Folder</button>
+                                <button class="pg-button-secondary" id="stopWatchFolderBtn" type="button">Stop</button>
+                            </div>
+                            <div id="watchFolderStatus" class="pg-status-box">Watch Folder is off. Point PrivGuard at an inbound folder to secure new files automatically.</div>
+                            <div class="pg-monitor-note">
+                                <div class="pg-cell-strong">Demo dataset</div>
+                                <div>Select any existing folder on this machine. Once watching is enabled, every supported file placed there will be processed automatically.</div>
                             </div>
                         </section>
 
-                        <section class="pg-card pg-preview-panel">
+                        <section class="pg-card">
                             <div class="pg-card-head">
                                 <div>
-                                    <h2 class="pg-card-title">Protection Output</h2>
-                                    <p class="pg-card-copy">PrivGuard applies protection and confirms each secured action.</p>
+                                    <h2 class="pg-card-title">Live Monitor</h2>
+                                    <p class="pg-card-copy">The dashboard refreshes automatically and reports what the background engine is doing.</p>
                                 </div>
                             </div>
-                            <div id="scanPolicyReason" class="pg-inline-box"></div>
-                            <div id="scanSteps" class="pg-step-list"></div>
-                            <div id="scanResultActions" class="pg-action-row"></div>
-                            <div class="pg-preview-box" id="scanPreview">The protected preview appears here after processing.</div>
+                            <div class="pg-step-list">
+                                <div class="pg-step-row"><div class="pg-cell-strong">Engine State</div><div id="watchEngineState">Idle</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Last Processed File</div><div id="watchLastProcessedFile">No file processed yet</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Last Document ID</div><div id="watchLastDocumentId">No document ID yet</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Last Processed Time</div><div id="watchLastProcessedAt">No processing timestamp yet</div></div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="pg-monitor-grid">
+                        <section class="pg-card">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Latest Protected Document</h2>
+                                    <p class="pg-card-copy">Most recent document completed by the watch-folder policy pipeline.</p>
+                                </div>
+                            </div>
+                            <div class="pg-step-list">
+                                <div class="pg-step-row"><div class="pg-cell-strong">File</div><div id="watchLatestName">Waiting for watched files</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Risk</div><div id="watchLatestRisk">-</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Protection</div><div id="watchLatestStatus">-</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Stored At</div><div id="watchLatestTime">-</div></div>
+                            </div>
+                        </section>
+
+                        <section class="pg-card">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Policy Rules</h2>
+                                    <p class="pg-card-copy">PrivGuard decides protection without asking the operator.</p>
+                                </div>
+                            </div>
+                            <div class="pg-chip-row">
+                                <span class="pg-chip">Low risk -> Store</span>
+                                <span class="pg-chip">Medium risk -> Redact</span>
+                                <span class="pg-chip">High risk -> Redact + Encrypt</span>
+                            </div>
+                            <div class="pg-inline-box">Detected entities include Kenyan IDs, KRA PINs, phones, emails, passwords, financial data, and names.</div>
                         </section>
                     </div>
                 </section>
@@ -192,15 +223,33 @@
                     <div class="pg-screen-head">
                         <div>
                             <h1 class="pg-screen-title">Secure Vault</h1>
-                            <p class="pg-screen-copy">Encrypted documents and protected outputs stored locally in PrivGuard’s secure vault.</p>
+                            <p class="pg-screen-copy">Encrypted documents, lifecycle policies, and governed retention controls stored locally in PrivGuard?s secure vault.</p>
                         </div>
+                    </div>
+
+                    <div class="pg-report-grid">
+                        <article class="pg-metric-card">
+                            <span>Active Records</span>
+                            <strong id="vaultActiveCount">0</strong>
+                            <p>Protected files still within their assigned retention window.</p>
+                        </article>
+                        <article class="pg-metric-card">
+                            <span>Expiring / Expired</span>
+                            <strong id="vaultExpiringCount">0</strong>
+                            <p>Records approaching archive or secure deletion decisions.</p>
+                        </article>
+                        <article class="pg-metric-card">
+                            <span>Archived / Deleted</span>
+                            <strong id="vaultArchivedCount">0</strong>
+                            <p>Lifecycle actions already executed inside the secure vault.</p>
+                        </article>
                     </div>
 
                     <section class="pg-card">
                         <div class="pg-card-head">
                             <div>
-                                <h2 class="pg-card-title">Vault Documents</h2>
-                                <p class="pg-card-copy">Review encrypted records, download redacted copies, and open secured files.</p>
+                                <h2 class="pg-card-title">Vault Lifecycle Manager</h2>
+                                <p class="pg-card-copy">Review encrypted records, track retention countdowns, and execute archive or secure deletion actions with full audit logging.</p>
                             </div>
                         </div>
                         <div class="pg-table-wrap">
@@ -209,7 +258,8 @@
                                     <tr>
                                         <th>Document ID</th>
                                         <th>Status</th>
-                                        <th>Date</th>
+                                        <th>Retention</th>
+                                        <th>Next Action</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -293,82 +343,66 @@
                     <div class="pg-screen-head">
                         <div>
                             <h1 class="pg-screen-title">Settings</h1>
-                            <p class="pg-screen-copy">Manage your operator profile, theme, and automation behavior without exposing encryption keys.</p>
+                            <p class="pg-screen-copy">Manage your operator profile, theme, and local security posture without exposing encryption keys.</p>
                         </div>
                     </div>
 
                     <div class="pg-settings-grid">
-                        <div class="pg-settings-column">
-                            <section class="pg-card pg-profile-card">
-                                <div class="pg-card-head">
+                        <section class="pg-card pg-profile-card">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Profile & Appearance</h2>
+                                    <p class="pg-card-copy">Edit your local operator identity, upload an avatar, and switch the workspace between dark and light mode.</p>
+                                </div>
+                            </div>
+                            <div class="pg-profile-grid">
+                                <div class="pg-profile-summary">
+                                    <div class="pg-profile-avatar-frame">
+                                        <img id="settingsAvatarImage" class="pg-profile-avatar-image{% if not user.avatar_url %} hidden{% endif %}" src="{{ user.avatar_url or '' }}" alt="Profile avatar">
+                                        <div id="settingsAvatarFallback" class="pg-profile-avatar-fallback{% if user.avatar_url %} hidden{% endif %}">{{ (user.display_name or user.username)[0]|upper }}</div>
+                                    </div>
                                     <div>
-                                        <h2 class="pg-card-title">Profile & Appearance</h2>
-                                        <p class="pg-card-copy">Edit your local operator identity, upload an avatar, and switch the workspace between dark and light mode.</p>
+                                        <div class="pg-cell-strong" id="settingsProfileName">{{ user.display_name or user.username }}</div>
+                                        <div class="pg-footer-note" id="settingsProfileHandle">@{{ user.username }}</div>
                                     </div>
                                 </div>
-                                <div class="pg-profile-grid">
-                                    <div class="pg-profile-summary">
-                                        <div class="pg-profile-avatar-frame">
-                                            <img id="settingsAvatarImage" class="pg-profile-avatar-image{% if not user.avatar_url %} hidden{% endif %}" src="{{ user.avatar_url or '' }}" alt="Profile avatar">
-                                            <div id="settingsAvatarFallback" class="pg-profile-avatar-fallback{% if user.avatar_url %} hidden{% endif %}">{{ (user.display_name or user.username)[0]|upper }}</div>
-                                        </div>
-                                        <div>
-                                            <div class="pg-cell-strong" id="settingsProfileName">{{ user.display_name or user.username }}</div>
-                                            <div class="pg-footer-note" id="settingsProfileHandle">@{{ user.username }}</div>
-                                        </div>
-                                    </div>
-                                    <div class="pg-input-group">
-                                        <label for="profileDisplayName">Display Name</label>
-                                        <input id="profileDisplayName" class="pg-input" type="text" maxlength="80" value="{{ user.display_name or user.username }}">
-                                    </div>
-                                    <div class="pg-upload-actions">
-                                        <label class="pg-file-trigger" for="profileAvatarInput">
-                                            <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 5h-3.17L15 3H9L7.17 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-8 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6.5A2.5 2.5 0 1 0 12 15a2.5 2.5 0 0 0 0-5z"></path></svg>
-                                            Upload Avatar
-                                        </label>
-                                        <input id="profileAvatarInput" type="file" accept=".png,.jpg,.jpeg,.webp,.gif" hidden>
-                                        <button class="pg-button-secondary" id="saveProfileBtn" type="button">
-                                            <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3H5a2 2 0 0 0-2 2v14l4-4h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-1 8h-3v3h-2v-3H8V9h3V6h2v3h3v2z"></path></svg>
-                                            Save Profile
-                                        </button>
-                                    </div>
-                                    <button class="pg-theme-switch" id="settingsThemeToggle" type="button" aria-pressed="{{ 'true' if (user.theme or 'dark') == 'light' else 'false' }}">
-                                        <span class="pg-theme-switch-track"><span class="pg-theme-switch-thumb"></span></span>
-                                        <span id="settingsThemeLabel">{{ 'Light mode active' if (user.theme or 'dark') == 'light' else 'Dark mode active' }}</span>
-                                    </button>
-                                    <div id="profileStatus" class="pg-status-box">Profile and appearance settings are stored locally on this device.</div>
-                                </div>
-                            </section>
-
-                            <section class="pg-card">
-                                <div class="pg-card-head">
-                                    <div>
-                                        <h2 class="pg-card-title">Watch Folder</h2>
-                                        <p class="pg-card-copy">Automatically protect every new file that appears in a monitored folder.</p>
-                                    </div>
-                                    <span id="watchBadge" class="pg-badge pg-badge-risk-safe">Watch Off</span>
+                                <div class="pg-input-group">
+                                    <label for="profileDisplayName">Display Name</label>
+                                    <input id="profileDisplayName" class="pg-input" type="text" maxlength="80" value="{{ user.display_name or user.username }}">
                                 </div>
                                 <div class="pg-upload-actions">
-                                    <input id="watchFolderPath" class="pg-text-input" type="text" placeholder="Example: C:\Users\HP\Documents\Incoming">
-                                    <button class="pg-button" id="saveWatchFolderBtn" type="button">Start Watching</button>
-                                    <button class="pg-button-secondary" id="stopWatchFolderBtn" type="button">Stop</button>
+                                    <label class="pg-file-trigger" for="profileAvatarInput">
+                                        <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 5h-3.17L15 3H9L7.17 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-8 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6.5A2.5 2.5 0 1 0 12 15a2.5 2.5 0 0 0 0-5z"></path></svg>
+                                        Upload Avatar
+                                    </label>
+                                    <input id="profileAvatarInput" type="file" accept=".png,.jpg,.jpeg,.webp,.gif" hidden>
+                                    <button class="pg-button-secondary" id="saveProfileBtn" type="button">
+                                        <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3H5a2 2 0 0 0-2 2v14l4-4h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-1 8h-3v3h-2v-3H8V9h3V6h2v3h3v2z"></path></svg>
+                                        Save Profile
+                                    </button>
                                 </div>
-                                <div id="watchFolderStatus" class="pg-status-box">Watch Folder is off. Point PrivGuard at an inbound folder to secure new files automatically.</div>
-                            </section>
-                        </div>
+                                <button class="pg-theme-switch" id="settingsThemeToggle" type="button" aria-pressed="{{ 'true' if (user.theme or 'dark') == 'light' else 'false' }}">
+                                    <span class="pg-theme-switch-track"><span class="pg-theme-switch-thumb"></span></span>
+                                    <span id="settingsThemeLabel">{{ 'Light mode active' if (user.theme or 'dark') == 'light' else 'Dark mode active' }}</span>
+                                </button>
+                                <div id="profileStatus" class="pg-status-box">Profile and appearance settings are stored locally on this device.</div>
+                            </div>
+                        </section>
 
-                        <section class="pg-card">
+                        <section class="pg-card pg-settings-card">
                             <div class="pg-card-head">
                                 <div>
                                     <h2 class="pg-card-title">Security Posture</h2>
                                     <p class="pg-card-copy">Current local workspace status for privacy operations.</p>
                                 </div>
+                                <span class="pg-settings-chip">Local governance</span>
                             </div>
                             <div class="pg-step-list">
-                                <div class="pg-step-row"><div class="pg-cell-strong">Vault Status</div><div>Unlocked</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Vault Status</div><div id="settingsVaultStatus">Locked until master PIN is entered</div></div>
                                 <div class="pg-step-row"><div class="pg-cell-strong">Processing Mode</div><div>Offline, local only</div></div>
-                                <div class="pg-step-row"><div class="pg-cell-strong">Protection Policy</div><div>Automatic redaction and encryption</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Intake Mode</div><div>Watch folder only</div></div>
                                 <div class="pg-step-row"><div class="pg-cell-strong">Theme</div><div id="settingsThemeStatus">{{ 'Light mode active' if (user.theme or 'dark') == 'light' else 'Dark mode active' }}</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Lifecycle Engine</div><div id="settingsLifecycleEngine">Waiting for status</div></div>
                             </div>
                             <div class="pg-settings-note">Your data is processed locally and never leaves your device.</div>
                             <div class="pg-settings-actions">
@@ -378,8 +412,79 @@
                                 </button>
                             </div>
                         </section>
+
+                        <section class="pg-card pg-settings-card">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Lifecycle Policies</h2>
+                                    <p class="pg-card-copy">Adjust retention windows and automated lifecycle actions without editing config files.</p>
+                                </div>
+                                <span class="pg-settings-chip">Retention engine</span>
+                            </div>
+                            <div class="pg-settings-form-grid">
+                                <div class="pg-input-group"><label for="highRetentionDays">High Risk Retention (days)</label><input id="highRetentionDays" class="pg-input" type="number" min="1"></div>
+                                <div class="pg-input-group"><label for="mediumRetentionDays">Medium Risk Retention (days)</label><input id="mediumRetentionDays" class="pg-input" type="number" min="1"></div>
+                                <div class="pg-input-group"><label for="lowRetentionDays">Low Risk Retention (days)</label><input id="lowRetentionDays" class="pg-input" type="number" min="1"></div>
+                                <div class="pg-input-group"><label for="expiringSoonDays">Expiring Soon Threshold</label><input id="expiringSoonDays" class="pg-input" type="number" min="1"></div>
+                                <div class="pg-input-group"><label for="lifecycleScanSeconds">Lifecycle Scan Interval (seconds)</label><input id="lifecycleScanSeconds" class="pg-input" type="number" min="10"></div>
+                            </div>
+                            <div class="pg-settings-toggle-grid">
+                                <label class="pg-theme-switch" for="autoArchiveExpiredToggle"><span class="pg-theme-switch-track"><span class="pg-theme-switch-thumb"></span></span><span>Automatically archive expired records</span><input id="autoArchiveExpiredToggle" type="checkbox" hidden></label>
+                                <label class="pg-theme-switch" for="autoDeleteArchivedToggle"><span class="pg-theme-switch-track"><span class="pg-theme-switch-thumb"></span></span><span>Automatically delete archived records after expiry</span><input id="autoDeleteArchivedToggle" type="checkbox" hidden></label>
+                            </div>
+                            <div class="pg-settings-footer">
+                                <div id="lifecycleSettingsStatus" class="pg-status-box">Lifecycle settings will be stored locally.</div>
+                                <div class="pg-upload-actions">
+                                    <button class="pg-button" id="saveLifecycleSettingsBtn" type="button">Save Policies</button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="pg-card pg-settings-card">
+                            <div class="pg-card-head">
+                                <div>
+                                    <h2 class="pg-card-title">Vault PIN</h2>
+                                    <p class="pg-card-copy">Rotate the Secure Vault PIN after unlocking the vault. Existing wrapped keys are re-encrypted safely.</p>
+                                </div>
+                                <span class="pg-settings-chip">Vault control</span>
+                            </div>
+                            <div class="pg-settings-form-grid pg-settings-form-grid-tight">
+                                <div class="pg-input-group"><label for="currentVaultPin">Current Vault PIN</label><input id="currentVaultPin" class="pg-input" type="password"></div>
+                                <div class="pg-input-group"><label for="newVaultPin">New Vault PIN</label><input id="newVaultPin" class="pg-input" type="password"></div>
+                            </div>
+                            <div class="pg-settings-footer">
+                                <div id="vaultPinStatus" class="pg-status-box">Unlock the vault first, then rotate the PIN from here.</div>
+                                <div class="pg-upload-actions">
+                                    <button class="pg-button-secondary" id="changeVaultPinBtn" type="button">Change Vault PIN</button>
+                                </div>
+                            </div>
+                        </section>
                     </div>
                 </section>
+
+                <div class="pg-modal hidden" id="vaultUnlockModal" aria-hidden="true">
+                    <div class="pg-modal-backdrop" data-close-vault-modal></div>
+                    <div class="pg-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="vaultUnlockTitle">
+                        <div class="pg-card-head">
+                            <div>
+                                <h2 class="pg-card-title" id="vaultUnlockTitle">Unlock Secure Vault</h2>
+                                <p class="pg-card-copy">Enter the master PIN to open the secure vault and access encrypted documents.</p>
+                            </div>
+                        </div>
+                        <div class="pg-input-group">
+                            <label for="vaultPinInput">Master PIN</label>
+                            <input id="vaultPinInput" class="pg-input" type="password" inputmode="numeric" autocomplete="off" placeholder="Enter master PIN">
+                        </div>
+                        <div id="vaultUnlockError" class="pg-auth-error hidden"></div>
+                        <div class="pg-upload-actions">
+                            <button class="pg-button" id="vaultUnlockBtn" type="button">
+                                <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a4 4 0 0 0-4 4v2H6c-1.1 0-2 .9-2 2v10h16V10c0-1.1-.9-2-2-2h-2V6a4 4 0 0 0-4-4zm-2 6V6a2 2 0 1 1 4 0v2h-4zm2 8.75A1.75 1.75 0 1 1 12 13a1.75 1.75 0 0 1 0 3.5z"></path></svg>
+                                Unlock Vault
+                            </button>
+                            <button class="pg-button-secondary" id="vaultUnlockCancelBtn" type="button">Cancel</button>
+                        </div>
+                    </div>
+                </div>
 
                 <section id="previewDrawer" class="pg-card pg-preview-drawer hidden">
                     <div class="pg-card-head">

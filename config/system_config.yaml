@@ -1,52 +1,55 @@
-﻿version: "1.0.0"
+version: 1.0.0
 audit:
-  database_path: "instance/privguard_audit.db"
+  database_path: instance/privguard_audit.db
   enabled: true
-
+  archive_root: audit activity
 vault:
-  root_dir: "vault"
-  state_path: "instance/vault_state.json"
+  root_dir: vault
+  state_path: instance/vault_state.json
+  default_master_key: admin254
   directories:
-    originals: "Originals"
-    redacted: "Redacted"
-    encrypted: "Encrypted"
-    reports: "Reports"
-    keys: "Keys"
-    logs: "Logs"
-
+    originals: Originals
+    redacted: Redacted
+    encrypted: Encrypted
+    reports: Reports
+    keys: Keys
+    logs: Logs
 watch_folder:
-  state_path: "instance/watch_folder_state.json"
+  state_path: instance/watch_folder_state.json
   poll_seconds: 3
-
-# OCR: sharp preprocessing for unclear/blurry photos (images and scanned PDFs)
 ocr:
-  # Set to false to use simple grayscale + contrast only (faster, less accurate on blur)
   sharp_preprocessing: true
-  # Minimum side length (px) to target when upscaling; higher = sharper text, slower (e.g. 1200, 1600)
   min_text_height_px: 1200
-  # Cap image dimension to avoid high memory use
   max_dimension_px: 4000
-  # Scanned PDF rasterization scale (2 = 2x, 3 = 3x resolution per page)
   pdf_scale: 3
-
 evaluation:
-  reports_dir: "reports"
+  reports_dir: reports
 auth:
   enabled: true
   users:
     admin:
-      password_hash: "scrypt:32768:8:1$X6mKPddlIEEEMRFk$31fd5e8a1eca7eb518e46e4bc4bd690cc3e7d4e793bbb9448584d5508c3a722cc62ad8d09b590cae0954c8af2315ec2c19c67b21b867012517b2aa6a00503573"
-      role: "admin"
+      password_hash: scrypt:32768:8:1$X6mKPddlIEEEMRFk$31fd5e8a1eca7eb518e46e4bc4bd690cc3e7d4e793bbb9448584d5508c3a722cc62ad8d09b590cae0954c8af2315ec2c19c67b21b867012517b2aa6a00503573
+      role: admin
     reviewer:
-      password_hash: "scrypt:32768:8:1$PMTFgt9SR0LjNOOu$6adfb633f0d8e6d341d8c4fb20c34d455abef8fe9038d6c2debcce5e179571e955c3afb10aa78d7ee1548633c4b3e48e9dbbc172797f55490cba414c1ff1f946"
-      role: "reviewer"
+      password_hash: scrypt:32768:8:1$PMTFgt9SR0LjNOOu$6adfb633f0d8e6d341d8c4fb20c34d455abef8fe9038d6c2debcce5e179571e955c3afb10aa78d7ee1548633c4b3e48e9dbbc172797f55490cba414c1ff1f946
+      role: reviewer
 retention:
-  audit_retention_days: 90
+  audit_retention_days: 30
   file_retention_days: 30
   cleanup_directories:
-    - "uploads"
-    - "outputs"
-    - "keys"
+  - uploads
+  - outputs
+  - keys
 export:
-  export_dir: "exports"
-  signing_key_path: "vault/Keys/audit_signing.key"
+  export_dir: exports
+  signing_key_path: vault/Keys/audit_signing.key
+lifecycle:
+  archive_dir: Archive
+  expiring_soon_days: 10
+  retention_defaults:
+    high: 90
+    medium: 180
+    low: 365
+  auto_archive_expired: true
+  auto_delete_archived: false
+  scan_seconds: 60

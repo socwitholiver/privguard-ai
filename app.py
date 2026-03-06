@@ -3,6 +3,7 @@ import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
+from tkinter import Tk, filedialog
 
 from flask import Flask, jsonify, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
@@ -14,7 +15,10 @@ from automation.folder_watch import (
     get_watch_folder_state,
     stop_watch_folder_runner,
 )
+from automation.lifecycle_worker import ensure_lifecycle_runner, lifecycle_state, stop_lifecycle_runner
 from classification import build_risk_summary
+from config_loader import load_system_config, save_system_config
+from lifecycle_manager import archive_root, build_lifecycle_policy, evaluate_lifecycle
 from detection import count_sensitive_items, detect_sensitive_data
 from extraction import read_document_text
 from protection import (
@@ -26,12 +30,15 @@ from protection import (
 )
 from security.auth import authenticate_user, current_user, require_login, require_vault_unlock
 from security.vault import (
+    change_master_password,
     ensure_vault_layout,
+    get_default_master_key,
     lock_vault,
     unlock_vault,
     unwrap_document_key,
     vault_is_configured,
     vault_is_unlocked,
+    vault_uses_system_master_key,
     wrap_document_key,
 )
 from storage.audit_repo import (
@@ -44,12 +51,16 @@ from storage.db import init_db
 from storage.profile_repo import get_profile, update_profile
 from storage.document_repo import (
     create_document_record,
+    delete_artifacts_for_document,
     generate_document_id,
     get_document,
     get_latest_artifact,
     list_documents,
     record_artifact,
+    update_artifact_location,
+    update_document_fields,
     update_document_status,
+    vault_summary,
 )
 
 app = Flask(__name__)
@@ -147,6 +158,172 @@ def _artifact_filename(document: dict, suffix: str, extension: str) -> str:
     return f"{document['document_id']}__{safe_stem}.{_timestamp_suffix()}.{suffix}.{extension}"
 
 
+def _system_settings_payload() -> dict:
+    config = load_system_config()
+    lifecycle = config.get("lifecycle", {})
+    return {
+        "retention_defaults": {
+            "high": int(lifecycle.get("retention_defaults", {}).get("high", 90)),
+            "medium": int(lifecycle.get("retention_defaults", {}).get("medium", 180)),
+            "low": int(lifecycle.get("retention_defaults", {}).get("low", 365)),
+        },
+        "expiring_soon_days": int(lifecycle.get("expiring_soon_days", 10)),
+        "auto_archive_expired": bool(lifecycle.get("auto_archive_expired", True)),
+        "auto_delete_archived": bool(lifecycle.get("auto_delete_archived", False)),
+        "scan_seconds": int(lifecycle.get("scan_seconds", 60)),
+        "vault_mode": "system" if vault_uses_system_master_key() else "user",
+    }
+
+
+def _save_lifecycle_settings(payload: dict) -> dict:
+    config = load_system_config()
+    lifecycle = config.setdefault("lifecycle", {})
+    lifecycle["retention_defaults"] = {
+        "high": max(1, int(payload.get("high_retention_days", payload.get("high", 90)))),
+        "medium": max(1, int(payload.get("medium_retention_days", payload.get("medium", 180)))),
+        "low": max(1, int(payload.get("low_retention_days", payload.get("low", 365)))),
+    }
+    lifecycle["expiring_soon_days"] = max(1, int(payload.get("expiring_soon_days", lifecycle.get("expiring_soon_days", 10))))
+    lifecycle["auto_archive_expired"] = bool(payload.get("auto_archive_expired", lifecycle.get("auto_archive_expired", True)))
+    lifecycle["auto_delete_archived"] = bool(payload.get("auto_delete_archived", lifecycle.get("auto_delete_archived", False)))
+    lifecycle["scan_seconds"] = max(10, int(payload.get("scan_seconds", lifecycle.get("scan_seconds", 60))))
+    save_system_config(config)
+    return _system_settings_payload()
+
+
+def _archive_document_by_id(document_id: str, *, actor: str, source: str) -> dict:
+    document = get_document(document_id)
+    if not document:
+        raise FileNotFoundError(f"Document {document_id} not found")
+    updated = _archive_document_bundle(document)
+    log_audit_event(
+        event_type="lifecycle_archive",
+        actor=actor,
+        source=source,
+        details={
+            "document_id": document_id,
+            "filename": updated.get("original_filename"),
+            "archive_path": updated.get("archive_path"),
+        },
+    )
+    return updated
+
+
+def _secure_delete_document_by_id(document_id: str, *, actor: str, source: str) -> dict:
+    document = get_document(document_id)
+    if not document:
+        raise FileNotFoundError(f"Document {document_id} not found")
+    updated = _secure_delete_document_bundle(document)
+    log_audit_event(
+        event_type="lifecycle_secure_delete",
+        actor=actor,
+        source=source,
+        details={
+            "document_id": document_id,
+            "filename": updated.get("original_filename"),
+        },
+    )
+    return updated
+
+
+def _ensure_lifecycle_service() -> None:
+    ensure_lifecycle_runner(
+        lambda document_id: _archive_document_by_id(document_id, actor="lifecycle-engine", source="scheduler"),
+        lambda document_id: _secure_delete_document_by_id(document_id, actor="lifecycle-engine", source="scheduler"),
+    )
+
+
+def _ensure_document_lifecycle(document: dict) -> dict:
+    if document.get("retention_until") and document.get("owner") and document.get("department"):
+        return document
+    lifecycle = build_lifecycle_policy(
+        str(document.get("original_filename") or "document"),
+        {"level": document.get("risk_level", "Low")},
+        created_at=document.get("created_at"),
+    )
+    update_document_fields(
+        document["document_id"],
+        owner=lifecycle["owner"],
+        department=lifecycle["department"],
+        retention_days=lifecycle["retention_days"],
+        retention_until=lifecycle["retention_until"],
+        expiry_action=lifecycle["expiry_action"],
+        policy_name=lifecycle["policy_name"],
+        lifecycle_status=lifecycle["lifecycle_status"],
+        lifecycle_next_action=lifecycle["next_action"],
+    )
+    document.update(lifecycle)
+    return document
+
+
+def _archive_document_bundle(document: dict) -> dict:
+    document = _ensure_document_lifecycle(document)
+    archive_dir = archive_root() / datetime.now(timezone.utc).strftime("%Y") / document["document_id"]
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
+    original_path_value = str(document.get("original_path") or "").strip()
+    if original_path_value:
+        original_path = Path(original_path_value)
+        if original_path.exists() and original_path.is_file():
+            archived_original = archive_dir / original_path.name
+            if original_path.resolve() != archived_original.resolve():
+                archived_original.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(original_path), archived_original)
+                update_document_fields(document["document_id"], original_path=str(archived_original))
+
+    for artifact in document.get("artifact_history", []):
+        artifact_path = Path(str(artifact.get("file_path") or ""))
+        if artifact_path.exists() and artifact_path.is_file():
+            archived_path = archive_dir / artifact_path.name
+            if artifact_path.resolve() != archived_path.resolve():
+                archived_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(artifact_path), archived_path)
+            metadata = dict(artifact.get("metadata") or {})
+            metadata["archived"] = True
+            metadata["archive_path"] = str(archived_path)
+            update_artifact_location(artifact["id"], str(archived_path), archived_path.name, metadata)
+
+    archived_at = datetime.now(timezone.utc).isoformat()
+    update_document_fields(
+        document["document_id"],
+        lifecycle_status="archived",
+        lifecycle_next_action="Stored in archive",
+        archive_path=str(archive_dir),
+        archived_at=archived_at,
+    )
+    refreshed = get_document(document["document_id"]) or document
+    refreshed = _ensure_document_lifecycle(refreshed)
+    return refreshed
+
+
+def _secure_delete_document_bundle(document: dict) -> dict:
+    document = _ensure_document_lifecycle(document)
+    original_path_value = str(document.get("original_path") or "").strip()
+    if original_path_value:
+        original_path = Path(original_path_value)
+        if original_path.exists() and original_path.is_file():
+            original_path.unlink()
+
+    for artifact in document.get("artifact_history", []):
+        artifact_path = Path(str(artifact.get("file_path") or ""))
+        if artifact_path.exists() and artifact_path.is_file():
+            artifact_path.unlink()
+
+    delete_artifacts_for_document(document["document_id"])
+    deleted_at = datetime.now(timezone.utc).isoformat()
+    update_document_fields(
+        document["document_id"],
+        original_path="",
+        lifecycle_status="deleted",
+        lifecycle_next_action="Deleted from vault",
+        archive_path="",
+        deleted_at=deleted_at,
+    )
+    refreshed = get_document(document["document_id"]) or document
+    refreshed = _ensure_document_lifecycle(refreshed)
+    return refreshed
+
+
 def _protected_placeholder_summary() -> dict:
     return {
         "score": 0,
@@ -178,17 +355,6 @@ def _copy_original_to_vault(source_path: Path, document_id: str) -> tuple[str, P
     return filename, original_path
 
 
-def _save_uploaded_original(file_obj) -> tuple[str, str, Path]:
-    if not file_obj or not file_obj.filename:
-        raise ValueError("A valid file is required.")
-    filename = secure_filename(file_obj.filename)
-    if not filename:
-        raise ValueError("Empty filename")
-    document_id = generate_document_id(datetime.now(timezone.utc).strftime("%Y"))
-    original_path = ensure_vault_layout()["originals"] / f"{document_id}__{filename}"
-    file_obj.save(str(original_path))
-    return document_id, filename, original_path
-
 
 def _register_document_record(
     *,
@@ -202,6 +368,7 @@ def _register_document_record(
     findings = detect_sensitive_data(extracted_text)
     risk = build_risk_summary(findings)
     total_items = count_sensitive_items(findings)
+    lifecycle = build_lifecycle_policy(original_filename, risk)
     document = create_document_record(
         document_id=document_id,
         original_filename=original_filename,
@@ -211,6 +378,7 @@ def _register_document_record(
         total_sensitive_items=total_items,
         actor=actor,
         status="SCANNED",
+        lifecycle=lifecycle,
     )
     record_artifact(
         document_id,
@@ -242,17 +410,6 @@ def _register_document_record(
     )
     return document, original_path, extracted_text, findings, risk
 
-
-def _register_uploaded_document(file_obj, actor: str | None = None, source: str = "web") -> tuple[dict, Path, str, dict, dict]:
-    actor_name = actor or _actor_name()
-    document_id, original_filename, original_path = _save_uploaded_original(file_obj)
-    return _register_document_record(
-        document_id=document_id,
-        original_filename=original_filename,
-        original_path=original_path,
-        actor=actor_name,
-        source=source,
-    )
 
 
 def _register_path_document(source_path: Path, actor: str, source: str = "watch_folder") -> tuple[dict, Path, str, dict, dict]:
@@ -340,10 +497,24 @@ def _result_label(document: dict) -> str:
 
 
 def _document_payload(document: dict) -> dict:
+    document = _ensure_document_lifecycle(document)
     artifacts = document.get("artifacts") or {}
+    lifecycle = evaluate_lifecycle(document)
+    update_document_fields(
+        document["document_id"],
+        lifecycle_status=str(lifecycle.get("lifecycle_status", "Active")).lower().replace(" ", "_"),
+        lifecycle_next_action=lifecycle.get("next_action", "Monitor lifecycle"),
+    )
     status_label = _result_label(document)
     download_artifact = artifacts.get("redacted") or artifacts.get("original")
     report_artifact = artifacts.get("report")
+    deleted = bool(document.get("deleted_at"))
+    archived = bool(document.get("archived_at"))
+    lifecycle_actions = []
+    if not deleted and not archived and lifecycle.get("lifecycle_status") in {"Expired", "Expiring Soon"}:
+        lifecycle_actions.append("archive")
+    if not deleted and lifecycle.get("lifecycle_status") in {"Expired", "Archived"}:
+        lifecycle_actions.append("secure_delete")
     return {
         "document_id": document["document_id"],
         "filename": document.get("original_filename"),
@@ -354,27 +525,49 @@ def _document_payload(document: dict) -> dict:
         "created_at": document.get("created_at"),
         "download_url": (
             f"/api/documents/{document['document_id']}/artifacts/{download_artifact['artifact_type']}/download"
-            if download_artifact else None
+            if download_artifact and not deleted else None
         ),
         "report_url": (
             f"/api/documents/{document['document_id']}/artifacts/report/download"
-            if report_artifact else None
+            if report_artifact and not deleted else None
         ),
         "open_url": (
             f"/api/documents/{document['document_id']}/open"
-            if artifacts.get("encrypted") else None
+            if artifacts.get("encrypted") and not deleted else None
         ),
         "artifacts": {key: True for key in artifacts.keys()},
+        "owner": lifecycle.get("owner"),
+        "department": lifecycle.get("department"),
+        "retention_days": lifecycle.get("retention_days"),
+        "retention_until": lifecycle.get("retention_until"),
+        "retention_label": lifecycle.get("retention_label"),
+        "days_remaining": lifecycle.get("days_remaining"),
+        "lifecycle_status": lifecycle.get("lifecycle_status"),
+        "next_action": lifecycle.get("next_action"),
+        "policy_name": lifecycle.get("policy_name"),
+        "archive_path": lifecycle.get("archive_path"),
+        "lifecycle_actions": lifecycle_actions,
     }
 
 
 def _workspace_payload() -> dict:
     documents = [_document_payload(document) for document in list_documents(limit=20)]
+    lifecycle_summary = {
+        "active": sum(1 for document in documents if document.get("lifecycle_status") == "Active"),
+        "expiring": sum(1 for document in documents if document.get("lifecycle_status") == "Expiring Soon"),
+        "expired": sum(1 for document in documents if document.get("lifecycle_status") == "Expired"),
+        "archived": sum(1 for document in documents if document.get("lifecycle_status") == "Archived"),
+        "deleted": sum(1 for document in documents if document.get("lifecycle_status") == "Deleted"),
+    }
     return {
         "summary": summarize_scan_events(limit=50),
         "recent_files": documents,
         "activity": list_recent_audit_events(limit=12),
         "watch_folder": get_watch_folder_state(),
+        "vault_summary": vault_summary(),
+        "lifecycle_summary": lifecycle_summary,
+        "lifecycle_engine": lifecycle_state(),
+        "settings": _system_settings_payload(),
         "user": current_user(),
     }
 
@@ -536,6 +729,22 @@ def _ensure_watch_service() -> None:
         ensure_watch_folder_running(_process_watch_file)
 
 
+def _lock_vault_session() -> None:
+    session["vault_unlocked"] = False
+    lock_vault()
+
+
+def _select_folder_dialog() -> str:
+    root = Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    try:
+        selected = filedialog.askdirectory(title="Select Watch Folder")
+    finally:
+        root.destroy()
+    return str(selected or "").strip()
+
+
 def _validate_watch_folder(folder_path: str) -> Path:
     if not folder_path:
         raise ValueError("Watch folder path is required.")
@@ -551,21 +760,21 @@ def _validate_watch_folder(folder_path: str) -> Path:
 
 @app.route("/")
 @require_login
-@require_vault_unlock
 def home():
-    return render_template("dashboard.html", user=current_user())
+    return dashboard()
 
 
 @app.route("/dashboard")
 @require_login
-@require_vault_unlock
 def dashboard():
+    if session.pop("allow_dashboard_once", False):
+        return render_template("dashboard.html", user=current_user())
+    _lock_vault_session()
     return render_template("dashboard.html", user=current_user())
 
 
 @app.route("/launch")
 @require_login
-@require_vault_unlock
 def launch():
     return render_template("launch.html", user=current_user())
 
@@ -578,23 +787,38 @@ def login():
     payload = request.get_json(silent=True) or request.form
     username = str(payload.get("username", "")).strip()
     password = str(payload.get("password", "")).strip()
-    supplied_master_password = str(payload.get("master_password", "")).strip()
-    master_password = supplied_master_password or password
     user = authenticate_user(username, password)
     if not user:
         return jsonify({"error": "Invalid credentials"}), 401
 
-    try:
-        unlock_vault(master_password, user["username"])
-    except ValueError:
-        return jsonify({
-            "error": "Unlock failed. If your master password differs from your sign-in password, use the separate master password option.",
-        }), 401
-
     _apply_profile_session(user["username"], role=user["role"])
+    session["vault_unlocked"] = False
+    session["allow_dashboard_once"] = True
+    _ensure_lifecycle_service()
+    return jsonify({"message": "Login successful"})
+
+
+@app.route("/api/vault/unlock", methods=["POST"])
+@require_login
+def vault_unlock_api():
+    payload = request.get_json(silent=True) or request.form
+    pin = str(payload.get("pin", "")).strip()
+    user = current_user() or {}
+    username = str(user.get("username") or session.get("username") or "local-user")
+
+    vault_password = pin
+    vault_key_mode = "system" if (not vault_is_configured() or vault_uses_system_master_key()) else "user"
+
+    try:
+        unlock_vault(vault_password, username, key_mode=vault_key_mode)
+    except ValueError:
+        session["vault_unlocked"] = False
+        return jsonify({"error": "Invalid master PIN"}), 401
+
     session["vault_unlocked"] = True
     _ensure_watch_service()
-    return jsonify({"message": "Login successful"})
+    _ensure_lifecycle_service()
+    return jsonify({"message": "Vault unlocked", "user": current_user()})
 
 
 @app.route("/logout", methods=["POST"])
@@ -602,19 +826,19 @@ def login():
 def logout():
     session.clear()
     stop_watch_folder_runner()
+    stop_lifecycle_runner()
     lock_vault()
     return jsonify({"message": "Logged out"})
 
 
 @app.route("/api/workspace")
 @require_login
-@require_vault_unlock
 def workspace_api():
     _ensure_watch_service()
+    _ensure_lifecycle_service()
     return jsonify(_workspace_payload())
 @app.route("/api/profile", methods=["GET"])
 @require_login
-@require_vault_unlock
 def profile_api():
     username = str(session.get("username", "")).strip()
     if not username:
@@ -625,7 +849,6 @@ def profile_api():
 
 @app.route("/api/profile", methods=["POST"])
 @require_login
-@require_vault_unlock
 def update_profile_api():
     username = str(session.get("username", "")).strip()
     if not username:
@@ -652,7 +875,6 @@ def update_profile_api():
 
 @app.route("/api/profile/avatar", methods=["POST"])
 @require_login
-@require_vault_unlock
 def upload_profile_avatar_api():
     username = str(session.get("username", "")).strip()
     if not username:
@@ -680,9 +902,65 @@ def upload_profile_avatar_api():
         return jsonify({"error": str(exc)}), 400
 
 
-@app.route("/api/watch-folder", methods=["GET"])
+@app.route("/api/system-settings", methods=["GET"])
+@require_login
+def system_settings_api():
+    return jsonify(_system_settings_payload())
+
+
+@app.route("/api/system-settings", methods=["POST"])
+@require_login
+def update_system_settings_api():
+    payload = request.get_json(silent=True) or request.form
+    settings = _save_lifecycle_settings(payload)
+    log_audit_event(
+        event_type="lifecycle_settings_updated",
+        actor=_actor_name(),
+        source="web",
+        details=settings,
+    )
+    return jsonify(settings)
+
+
+@app.route("/api/vault/pin", methods=["POST"])
 @require_login
 @require_vault_unlock
+def change_vault_pin_api():
+    payload = request.get_json(silent=True) or request.form
+    current_pin = str(payload.get("current_pin", "")).strip()
+    new_pin = str(payload.get("new_pin", "")).strip()
+    if len(new_pin) < 4:
+        return jsonify({"error": "New vault PIN must be at least 4 characters."}), 400
+    try:
+        status = change_master_password(current_pin, new_pin)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    if vault_uses_system_master_key():
+        config = load_system_config()
+        config.setdefault("vault", {})["default_master_key"] = new_pin
+        save_system_config(config)
+    log_audit_event(
+        event_type="vault_pin_changed",
+        actor=_actor_name(),
+        source="web",
+        details={"key_mode": status.get("key_mode")},
+    )
+    return jsonify({"message": "Vault PIN updated successfully.", "vault": status})
+
+
+@app.route("/api/watch-folder/pick", methods=["POST"])
+@require_login
+def watch_folder_picker_api():
+    selected = _select_folder_dialog()
+    if not selected:
+        return jsonify({"error": "No folder selected"}), 400
+    resolved = _validate_watch_folder(selected)
+    return jsonify({"path": str(resolved)})
+
+
+@app.route("/api/watch-folder", methods=["GET"])
+@require_login
 def watch_folder_status_api():
     _ensure_watch_service()
     return jsonify(get_watch_folder_state())
@@ -690,7 +968,6 @@ def watch_folder_status_api():
 
 @app.route("/api/watch-folder", methods=["POST"])
 @require_login
-@require_vault_unlock
 def watch_folder_enable_api():
     payload = request.get_json(silent=True) or request.form
     resolved = _validate_watch_folder(str(payload.get("path", "")).strip())
@@ -707,7 +984,6 @@ def watch_folder_enable_api():
 
 @app.route("/api/watch-folder", methods=["DELETE"])
 @require_login
-@require_vault_unlock
 def watch_folder_disable_api():
     state = disable_watch_folder(_actor_name())
     log_audit_event(
@@ -719,23 +995,27 @@ def watch_folder_disable_api():
     return jsonify(state)
 
 
-@app.route("/automate", methods=["POST"])
+
+@app.route("/api/documents/<document_id>/lifecycle/archive", methods=["POST"])
 @require_login
 @require_vault_unlock
-def automate():
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-    file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"error": "Empty filename"}), 400
+def archive_document_lifecycle(document_id: str):
+    document = get_document(document_id)
+    if not document:
+        return jsonify({"error": "Document not found"}), 404
+    updated = _archive_document_by_id(document_id, actor=_actor_name(), source="web")
+    return jsonify({"message": "Document archived", "document": _document_payload(updated)})
 
-    try:
-        document, _path, source_text, findings, risk = _register_uploaded_document(file)
-        payload = _run_policy_pipeline(document, source_text, findings, risk)
-        payload["workspace"] = _workspace_payload()
-        return jsonify(payload)
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
+
+@app.route("/api/documents/<document_id>/lifecycle/delete", methods=["POST"])
+@require_login
+@require_vault_unlock
+def secure_delete_document_lifecycle(document_id: str):
+    document = get_document(document_id)
+    if not document:
+        return jsonify({"error": "Document not found"}), 404
+    updated = _secure_delete_document_by_id(document_id, actor=_actor_name(), source="web")
+    return jsonify({"message": "Document securely deleted", "document": _document_payload(updated)})
 
 
 @app.route("/api/documents/<document_id>/artifacts/<artifact_type>/download")
@@ -800,6 +1080,12 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", "5000")),
         debug=os.environ.get("PRIVGUARD_DEBUG", "0") == "1",
     )
+
+
+
+
+
+
 
 
 
