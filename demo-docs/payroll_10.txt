@@ -1,0 +1,9 @@
+﻿Payroll Report Batch 10
+Employee: Joy Wanjiru
+National ID: 22334455
+KRA PIN: K012345678L
+Phone: 0701234567
+Email: audit@pamoja.or.ke
+Salary Account: 1011223344556
+Monthly Net Pay: KES 62500
+Payroll Password Reset Token: PAY10-SECURE-2026

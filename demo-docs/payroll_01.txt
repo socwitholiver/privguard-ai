@@ -1,0 +1,9 @@
+﻿Payroll Report Batch 1
+Employee: Amina Njeri
+National ID: 23456789
+KRA PIN: A123456789B
+Phone: 0712345678
+Email: records@uhuru.co.ke
+Salary Account: 0112233445566
+Monthly Net Pay: KES 46750
+Payroll Password Reset Token: PAY1-SECURE-2026

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "created_at": "2026-03-06T15:26:35.795691+00:00",
+  "password_hash": "scrypt:32768:8:1$kdxZPBeSMZOIkEy7$cf504c642ab953d51c57590e3e4891260f9e76e8b2408c970e7b0fa55a94f63b93957a86a12d5fc639e9f942b86b8b90b5ba162556f36455e2066ffa745af459",
+  "salt": "4SVz55hY1IyTMm6dgKM_DA==",
+  "key_mode": "system"
+}

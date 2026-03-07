@@ -1,134 +1,788 @@
+﻿import json
 import os
-import json
+import shutil
+from datetime import datetime, timezone
 from pathlib import Path
+from tkinter import Tk, filedialog
 
-from flask import Flask, jsonify, render_template, request, send_from_directory, session
+from flask import Flask, jsonify, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
 
+from automation.folder_watch import (
+    configure_watch_folder,
+    disable_watch_folder,
+    ensure_watch_folder_running,
+    get_watch_folder_state,
+    stop_watch_folder_runner,
+)
+from automation.lifecycle_worker import ensure_lifecycle_runner, lifecycle_state, stop_lifecycle_runner
 from classification import build_risk_summary
+from config_loader import load_system_config, save_system_config
+from lifecycle_manager import archive_root, build_lifecycle_policy, evaluate_lifecycle
 from detection import count_sensitive_items, detect_sensitive_data
 from extraction import read_document_text
-from ops.audit_export import export_signed_audit
-from ops.ocr_diagnostics import run_ocr_diagnostics
-from ops.retention import run_retention_cleanup
-from protection import encrypt_text, generate_encryption_key, redact_text, verify_redaction_quality
-from security.auth import (
-    authenticate_user,
-    current_user,
-    require_login,
-    require_permission,
+from protection import (
+    decrypt_text,
+    encrypt_text,
+    generate_encryption_key,
+    redact_text,
+    verify_redaction_quality,
 )
-from storage.audit_repo import log_audit_event, log_scan_event
+from security.auth import authenticate_user, current_user, require_login, require_vault_unlock
+from security.vault import (
+    change_master_password,
+    ensure_vault_layout,
+    get_default_master_key,
+    lock_vault,
+    unlock_vault,
+    unwrap_document_key,
+    vault_is_configured,
+    vault_is_unlocked,
+    vault_uses_system_master_key,
+    wrap_document_key,
+)
+from storage.audit_repo import (
+    list_recent_audit_events,
+    log_audit_event,
+    log_scan_event,
+    summarize_scan_events,
+)
 from storage.db import init_db
+from storage.profile_repo import get_profile, update_profile
+from storage.document_repo import (
+    create_document_record,
+    delete_artifacts_for_document,
+    generate_document_id,
+    get_document,
+    get_latest_artifact,
+    list_documents,
+    record_artifact,
+    update_artifact_location,
+    update_document_fields,
+    update_document_status,
+    vault_summary,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("PRIVGUARD_SECRET_KEY", "privguard-dev-secret-change-me")
-
-UPLOAD_FOLDER = "uploads"
-OUTPUT_FOLDER = "outputs"
-KEY_FOLDER = "keys"
-AVATAR_FOLDER = os.path.join(UPLOAD_FOLDER, "avatars")
-PROFILE_STORE = Path("instance/user_profiles.json")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-os.makedirs(KEY_FOLDER, exist_ok=True)
-os.makedirs(AVATAR_FOLDER, exist_ok=True)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+ensure_vault_layout()
 init_db()
 
-# In-memory scan history (last 10 only)
-scan_history = []
+ENTITY_TOTAL_KEYS = (
+    "national_ids",
+    "phone_numbers",
+    "emails",
+    "kra_pins",
+    "passwords",
+    "financial_info",
+    "personal_names",
+)
+AVATAR_DIR = Path("static/uploads/avatars")
+ALLOWED_AVATAR_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+
+SUPPORTED_EXTENSIONS = {
+    ".txt",
+    ".md",
+    ".csv",
+    ".log",
+    ".pdf",
+    ".docx",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".bmp",
+    ".tiff",
+    ".webp",
+}
 
 
-def _save_upload(file_obj, destination_dir: str) -> Path:
-    filename = secure_filename(file_obj.filename)
-    filepath = Path(destination_dir) / filename
-    file_obj.save(str(filepath))
-    return filepath
-
-
-def _load_profile_store() -> dict:
-    if not PROFILE_STORE.exists():
-        return {}
-    try:
-        return json.loads(PROFILE_STORE.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def _save_profile_store(data: dict) -> None:
-    PROFILE_STORE.parent.mkdir(parents=True, exist_ok=True)
-    PROFILE_STORE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-
-
-def _get_profile(username: str) -> dict:
-    profiles = _load_profile_store()
-    profile = profiles.get(username, {})
-    display_name = str(profile.get("display_name", username))
-    avatar_url = str(profile.get("avatar_url", ""))
-    return {"display_name": display_name, "avatar_url": avatar_url}
-
-
-def _set_profile(username: str, display_name: str | None = None, avatar_url: str | None = None) -> dict:
-    profiles = _load_profile_store()
-    current = profiles.get(username, {})
-    if display_name is not None:
-        current["display_name"] = display_name
-    if avatar_url is not None:
-        current["avatar_url"] = avatar_url
-    profiles[username] = current
-    _save_profile_store(profiles)
-    return {"display_name": str(current.get("display_name", username)), "avatar_url": str(current.get("avatar_url", ""))}
-
-
-def _build_dashboard_summary() -> dict:
-    total_scans = len(scan_history)
-    risk_distribution = {"High": 0, "Medium": 0, "Low": 0}
-    avg_risk_score = 0.0
-    entity_totals = {
-        "national_ids": 0,
-        "phone_numbers": 0,
-        "emails": 0,
-        "kra_pins": 0,
-    }
-
-    for entry in scan_history:
-        level = str(entry.get("risk_level", "Low"))
-        if level in risk_distribution:
-            risk_distribution[level] += 1
-        avg_risk_score += float(entry.get("risk_score", 0))
-        for key in entity_totals:
-            entity_totals[key] += int(entry.get("counts", {}).get(key, 0))
-
-    avg_risk_score = round(avg_risk_score / total_scans, 2) if total_scans else 0.0
-    high_ratio = round((risk_distribution["High"] / total_scans) * 100, 2) if total_scans else 0.0
-    trend_scores = [int(entry.get("risk_score", 0)) for entry in reversed(scan_history)]
+def _profile_payload(username: str) -> dict:
+    profile = get_profile(username)
     return {
-        "documents_scanned": total_scans,
-        "average_risk_score": avg_risk_score,
-        "high_risk_ratio": high_ratio,
-        "risk_distribution": risk_distribution,
-        "entity_totals": entity_totals,
-        "trend_scores": trend_scores,
+        "username": username,
+        "display_name": str(profile.get("display_name") or username),
+        "avatar_url": str(profile.get("avatar_url") or ""),
+        "theme": "light" if str(profile.get("theme") or "dark").lower() == "light" else "dark",
     }
+
+
+def _apply_profile_session(username: str, *, role: str | None = None) -> dict:
+    profile = _profile_payload(username)
+    session["username"] = username
+    if role is not None:
+        session["role"] = role
+    session["display_name"] = profile["display_name"]
+    session["avatar_url"] = profile["avatar_url"]
+    session["theme"] = profile["theme"]
+    return profile
+
+
+def _remove_prior_avatar(avatar_url: str) -> None:
+    prefix = "/static/uploads/avatars/"
+    if not avatar_url or not str(avatar_url).startswith(prefix):
+        return
+    avatar_name = str(avatar_url).replace(prefix, "", 1)
+    avatar_path = AVATAR_DIR / avatar_name
+    if avatar_path.exists() and avatar_path.is_file():
+        avatar_path.unlink()
+
+
+def _save_avatar(file_obj, username: str, existing_avatar_url: str = "") -> str:
+    if not file_obj or not file_obj.filename:
+        raise ValueError("An avatar file is required.")
+
+    suffix = Path(file_obj.filename).suffix.lower()
+    if suffix not in ALLOWED_AVATAR_SUFFIXES:
+        raise ValueError("Avatar must be a PNG, JPG, JPEG, WEBP, or GIF image.")
+
+    AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+    safe_user = secure_filename(username) or "user"
+    avatar_name = f"{safe_user}__avatar__{_timestamp_suffix()}{suffix}"
+    avatar_path = AVATAR_DIR / avatar_name
+    file_obj.save(str(avatar_path))
+    _remove_prior_avatar(existing_avatar_url)
+    return url_for("static", filename=f"uploads/avatars/{avatar_name}")
+
+def _actor_name(default: str = "web-user") -> str:
+    user = current_user() or {}
+    return str(user.get("username") or default)
+
+
+def _timestamp_suffix() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
+
+def _artifact_filename(document: dict, suffix: str, extension: str) -> str:
+    original_stem = Path(str(document.get("original_filename", "document"))).stem
+    safe_stem = secure_filename(original_stem) or "document"
+    return f"{document['document_id']}__{safe_stem}.{_timestamp_suffix()}.{suffix}.{extension}"
+
+
+def _system_settings_payload() -> dict:
+    config = load_system_config()
+    lifecycle = config.get("lifecycle", {})
+    return {
+        "retention_defaults": {
+            "high": int(lifecycle.get("retention_defaults", {}).get("high", 90)),
+            "medium": int(lifecycle.get("retention_defaults", {}).get("medium", 180)),
+            "low": int(lifecycle.get("retention_defaults", {}).get("low", 365)),
+        },
+        "expiring_soon_days": int(lifecycle.get("expiring_soon_days", 10)),
+        "auto_archive_expired": bool(lifecycle.get("auto_archive_expired", True)),
+        "auto_delete_archived": bool(lifecycle.get("auto_delete_archived", False)),
+        "scan_seconds": int(lifecycle.get("scan_seconds", 60)),
+        "vault_mode": "system" if vault_uses_system_master_key() else "user",
+    }
+
+
+def _save_lifecycle_settings(payload: dict) -> dict:
+    config = load_system_config()
+    lifecycle = config.setdefault("lifecycle", {})
+    lifecycle["retention_defaults"] = {
+        "high": max(1, int(payload.get("high_retention_days", payload.get("high", 90)))),
+        "medium": max(1, int(payload.get("medium_retention_days", payload.get("medium", 180)))),
+        "low": max(1, int(payload.get("low_retention_days", payload.get("low", 365)))),
+    }
+    lifecycle["expiring_soon_days"] = max(1, int(payload.get("expiring_soon_days", lifecycle.get("expiring_soon_days", 10))))
+    lifecycle["auto_archive_expired"] = bool(payload.get("auto_archive_expired", lifecycle.get("auto_archive_expired", True)))
+    lifecycle["auto_delete_archived"] = bool(payload.get("auto_delete_archived", lifecycle.get("auto_delete_archived", False)))
+    lifecycle["scan_seconds"] = max(10, int(payload.get("scan_seconds", lifecycle.get("scan_seconds", 60))))
+    save_system_config(config)
+    return _system_settings_payload()
+
+
+def _archive_document_by_id(document_id: str, *, actor: str, source: str) -> dict:
+    document = get_document(document_id)
+    if not document:
+        raise FileNotFoundError(f"Document {document_id} not found")
+    updated = _archive_document_bundle(document)
+    log_audit_event(
+        event_type="lifecycle_archive",
+        actor=actor,
+        source=source,
+        details={
+            "document_id": document_id,
+            "filename": updated.get("original_filename"),
+            "archive_path": updated.get("archive_path"),
+        },
+    )
+    return updated
+
+
+def _secure_delete_document_by_id(document_id: str, *, actor: str, source: str) -> dict:
+    document = get_document(document_id)
+    if not document:
+        raise FileNotFoundError(f"Document {document_id} not found")
+    updated = _secure_delete_document_bundle(document)
+    log_audit_event(
+        event_type="lifecycle_secure_delete",
+        actor=actor,
+        source=source,
+        details={
+            "document_id": document_id,
+            "filename": updated.get("original_filename"),
+        },
+    )
+    return updated
+
+
+def _ensure_lifecycle_service() -> None:
+    ensure_lifecycle_runner(
+        lambda document_id: _archive_document_by_id(document_id, actor="lifecycle-engine", source="scheduler"),
+        lambda document_id: _secure_delete_document_by_id(document_id, actor="lifecycle-engine", source="scheduler"),
+    )
+
+
+def _ensure_document_lifecycle(document: dict) -> dict:
+    if document.get("retention_until") and document.get("owner") and document.get("department"):
+        return document
+    lifecycle = build_lifecycle_policy(
+        str(document.get("original_filename") or "document"),
+        {"level": document.get("risk_level", "Low")},
+        created_at=document.get("created_at"),
+    )
+    update_document_fields(
+        document["document_id"],
+        owner=lifecycle["owner"],
+        department=lifecycle["department"],
+        retention_days=lifecycle["retention_days"],
+        retention_until=lifecycle["retention_until"],
+        expiry_action=lifecycle["expiry_action"],
+        policy_name=lifecycle["policy_name"],
+        lifecycle_status=lifecycle["lifecycle_status"],
+        lifecycle_next_action=lifecycle["next_action"],
+    )
+    document.update(lifecycle)
+    return document
+
+
+def _archive_document_bundle(document: dict) -> dict:
+    document = _ensure_document_lifecycle(document)
+    archive_dir = archive_root() / datetime.now(timezone.utc).strftime("%Y") / document["document_id"]
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
+    original_path_value = str(document.get("original_path") or "").strip()
+    if original_path_value:
+        original_path = Path(original_path_value)
+        if original_path.exists() and original_path.is_file():
+            archived_original = archive_dir / original_path.name
+            if original_path.resolve() != archived_original.resolve():
+                archived_original.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(original_path), archived_original)
+                update_document_fields(document["document_id"], original_path=str(archived_original))
+
+    for artifact in document.get("artifact_history", []):
+        artifact_path = Path(str(artifact.get("file_path") or ""))
+        if artifact_path.exists() and artifact_path.is_file():
+            archived_path = archive_dir / artifact_path.name
+            if artifact_path.resolve() != archived_path.resolve():
+                archived_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(artifact_path), archived_path)
+            metadata = dict(artifact.get("metadata") or {})
+            metadata["archived"] = True
+            metadata["archive_path"] = str(archived_path)
+            update_artifact_location(artifact["id"], str(archived_path), archived_path.name, metadata)
+
+    archived_at = datetime.now(timezone.utc).isoformat()
+    update_document_fields(
+        document["document_id"],
+        lifecycle_status="archived",
+        lifecycle_next_action="Stored in archive",
+        archive_path=str(archive_dir),
+        archived_at=archived_at,
+    )
+    refreshed = get_document(document["document_id"]) or document
+    refreshed = _ensure_document_lifecycle(refreshed)
+    return refreshed
+
+
+def _secure_delete_document_bundle(document: dict) -> dict:
+    document = _ensure_document_lifecycle(document)
+    original_path_value = str(document.get("original_path") or "").strip()
+    if original_path_value:
+        original_path = Path(original_path_value)
+        if original_path.exists() and original_path.is_file():
+            original_path.unlink()
+
+    for artifact in document.get("artifact_history", []):
+        artifact_path = Path(str(artifact.get("file_path") or ""))
+        if artifact_path.exists() and artifact_path.is_file():
+            artifact_path.unlink()
+
+    delete_artifacts_for_document(document["document_id"])
+    deleted_at = datetime.now(timezone.utc).isoformat()
+    update_document_fields(
+        document["document_id"],
+        original_path="",
+        lifecycle_status="deleted",
+        lifecycle_next_action="Deleted from vault",
+        archive_path="",
+        deleted_at=deleted_at,
+    )
+    refreshed = get_document(document["document_id"]) or document
+    refreshed = _ensure_document_lifecycle(refreshed)
+    return refreshed
+
+
+def _protected_placeholder_summary() -> dict:
+    return {
+        "score": 0,
+        "level": "Protected",
+        "counts": {key: 0 for key in ENTITY_TOTAL_KEYS},
+        "insights": [
+            "Protected output is encrypted; use the policy outcome recorded at scan time for the original exposure.",
+        ],
+        "recommendations": [
+            "Keep encrypted artifacts and the local vault available only to authorized users.",
+        ],
+        "primary_action": "allow",
+        "policy": {
+            "mode": "allow",
+            "label": "Protected",
+            "redact": False,
+            "encrypt": False,
+            "reason": "Protected artifact placeholder.",
+        },
+    }
+
+
+def _copy_original_to_vault(source_path: Path, document_id: str) -> tuple[str, Path]:
+    filename = secure_filename(source_path.name)
+    if not filename:
+        raise ValueError("Empty filename")
+    original_path = ensure_vault_layout()["originals"] / f"{document_id}__{filename}"
+    shutil.copy2(source_path, original_path)
+    return filename, original_path
+
+
+
+def _register_document_record(
+    *,
+    document_id: str,
+    original_filename: str,
+    original_path: Path,
+    actor: str,
+    source: str,
+) -> tuple[dict, Path, str, dict, dict]:
+    extracted_text = read_document_text(original_path)
+    findings = detect_sensitive_data(extracted_text)
+    risk = build_risk_summary(findings)
+    total_items = count_sensitive_items(findings)
+    lifecycle = build_lifecycle_policy(original_filename, risk)
+    document = create_document_record(
+        document_id=document_id,
+        original_filename=original_filename,
+        original_path=str(original_path),
+        findings=findings,
+        risk=risk,
+        total_sensitive_items=total_items,
+        actor=actor,
+        status="SCANNED",
+        lifecycle=lifecycle,
+    )
+    record_artifact(
+        document_id,
+        "original",
+        str(original_path),
+        original_path.name,
+        {"stored_in": "vault", "kind": "original"},
+    )
+    log_scan_event(
+        filename=original_filename,
+        risk_level=str(risk.get("level", "Low")),
+        risk_score=int(risk.get("score", 0)),
+        total_sensitive_items=total_items,
+        source=source,
+        counts=risk.get("counts", {}),
+        document_id=document_id,
+    )
+    log_audit_event(
+        event_type="scan",
+        actor=actor,
+        source=source,
+        details={
+            "document_id": document_id,
+            "filename": original_filename,
+            "risk_level": risk.get("level", "Low"),
+            "risk_score": risk.get("score", 0),
+            "total_sensitive_items": total_items,
+        },
+    )
+    return document, original_path, extracted_text, findings, risk
+
+
+
+def _register_path_document(source_path: Path, actor: str, source: str = "watch_folder") -> tuple[dict, Path, str, dict, dict]:
+    if source_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+        raise ValueError(f"Unsupported file type: {source_path.suffix}")
+    document_id = generate_document_id(datetime.now(timezone.utc).strftime("%Y"))
+    original_filename, original_path = _copy_original_to_vault(source_path, document_id)
+    return _register_document_record(
+        document_id=document_id,
+        original_filename=original_filename,
+        original_path=original_path,
+        actor=actor,
+        source=source,
+    )
+
+
+def _load_document_context(document_id: str) -> tuple[dict, Path, str, dict, dict]:
+    document = get_document(document_id)
+    if not document:
+        raise FileNotFoundError(f"Document {document_id} was not found.")
+    original_path = Path(str(document["original_path"]))
+    if not original_path.exists():
+        raise FileNotFoundError(f"Original file for {document_id} is missing from the vault.")
+    extracted_text = read_document_text(original_path)
+    findings = document.get("findings") or detect_sensitive_data(extracted_text)
+    risk = build_risk_summary(findings)
+    return document, original_path, extracted_text, findings, risk
+
+
+def _write_compliance_report(
+    document: dict,
+    findings: dict,
+    risk: dict,
+    outputs: dict,
+    *,
+    actions_applied: list[str],
+    final_text: str | None = None,
+    redaction_quality: dict | None = None,
+    encryption_status: str = "not_required",
+    workflow_status: str = "ALLOWED",
+) -> tuple[Path, dict]:
+    report_name = _artifact_filename(document, "report", "json")
+    report_path = ensure_vault_layout()["reports"] / report_name
+    if final_text is None and encryption_status == "encrypted":
+        risk_after = _protected_placeholder_summary()
+    elif final_text is None:
+        risk_after = risk
+    else:
+        risk_after = build_risk_summary(detect_sensitive_data(final_text))
+
+    payload = {
+        "document_id": document["document_id"],
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "input_file": document.get("original_filename"),
+        "workflow_status": workflow_status,
+        "policy": risk.get("policy", {}),
+        "sensitive_items_detected": count_sensitive_items(findings),
+        "findings": findings,
+        "risk_before_protection": risk,
+        "risk_after_protection": risk_after,
+        "actions_applied": actions_applied,
+        "redaction_quality": redaction_quality,
+        "encryption_status": encryption_status,
+        "outputs": outputs,
+        "compliance_basis": "Kenya Data Protection Act (2019)",
+    }
+    report_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    record_artifact(
+        document["document_id"],
+        "report",
+        str(report_path),
+        report_path.name,
+        {"status": workflow_status, "encryption_status": encryption_status},
+    )
+    return report_path, payload
+
+
+def _result_label(document: dict) -> str:
+    artifacts = document.get("artifacts") or {}
+    if artifacts.get("encrypted"):
+        return "Encrypted"
+    if artifacts.get("redacted"):
+        return "Redacted"
+    return "Allowed"
+
+
+def _document_payload(document: dict) -> dict:
+    document = _ensure_document_lifecycle(document)
+    artifacts = document.get("artifacts") or {}
+    lifecycle = evaluate_lifecycle(document)
+    update_document_fields(
+        document["document_id"],
+        lifecycle_status=str(lifecycle.get("lifecycle_status", "Active")).lower().replace(" ", "_"),
+        lifecycle_next_action=lifecycle.get("next_action", "Monitor lifecycle"),
+    )
+    status_label = _result_label(document)
+    download_artifact = artifacts.get("redacted") or artifacts.get("original")
+    report_artifact = artifacts.get("report")
+    deleted = bool(document.get("deleted_at"))
+    archived = bool(document.get("archived_at"))
+    lifecycle_actions = []
+    if not deleted and not archived and lifecycle.get("lifecycle_status") in {"Expired", "Expiring Soon"}:
+        lifecycle_actions.append("archive")
+    if not deleted and lifecycle.get("lifecycle_status") in {"Expired", "Archived"}:
+        lifecycle_actions.append("secure_delete")
+    return {
+        "document_id": document["document_id"],
+        "filename": document.get("original_filename"),
+        "risk_level": document.get("risk_level"),
+        "risk_score": document.get("risk_score"),
+        "status": document.get("status"),
+        "status_label": status_label,
+        "created_at": document.get("created_at"),
+        "download_url": (
+            f"/api/documents/{document['document_id']}/artifacts/{download_artifact['artifact_type']}/download"
+            if download_artifact and not deleted else None
+        ),
+        "report_url": (
+            f"/api/documents/{document['document_id']}/artifacts/report/download"
+            if report_artifact and not deleted else None
+        ),
+        "open_url": (
+            f"/api/documents/{document['document_id']}/open"
+            if artifacts.get("encrypted") and not deleted else None
+        ),
+        "artifacts": {key: True for key in artifacts.keys()},
+        "owner": lifecycle.get("owner"),
+        "department": lifecycle.get("department"),
+        "retention_days": lifecycle.get("retention_days"),
+        "retention_until": lifecycle.get("retention_until"),
+        "retention_label": lifecycle.get("retention_label"),
+        "days_remaining": lifecycle.get("days_remaining"),
+        "lifecycle_status": lifecycle.get("lifecycle_status"),
+        "next_action": lifecycle.get("next_action"),
+        "policy_name": lifecycle.get("policy_name"),
+        "archive_path": lifecycle.get("archive_path"),
+        "lifecycle_actions": lifecycle_actions,
+    }
+
+
+def _workspace_payload() -> dict:
+    documents = [_document_payload(document) for document in list_documents(limit=20)]
+    lifecycle_summary = {
+        "active": sum(1 for document in documents if document.get("lifecycle_status") == "Active"),
+        "expiring": sum(1 for document in documents if document.get("lifecycle_status") == "Expiring Soon"),
+        "expired": sum(1 for document in documents if document.get("lifecycle_status") == "Expired"),
+        "archived": sum(1 for document in documents if document.get("lifecycle_status") == "Archived"),
+        "deleted": sum(1 for document in documents if document.get("lifecycle_status") == "Deleted"),
+    }
+    return {
+        "summary": summarize_scan_events(limit=50),
+        "recent_files": documents,
+        "activity": list_recent_audit_events(limit=12),
+        "watch_folder": get_watch_folder_state(),
+        "vault_summary": vault_summary(),
+        "lifecycle_summary": lifecycle_summary,
+        "lifecycle_engine": lifecycle_state(),
+        "settings": _system_settings_payload(),
+        "user": current_user(),
+    }
+
+
+def _run_policy_pipeline(
+    document: dict,
+    source_text: str,
+    findings: dict,
+    risk: dict,
+    *,
+    actor: str | None = None,
+    source: str = "web",
+) -> dict:
+    actor_name = actor or _actor_name()
+    policy = risk.get("policy", {})
+    policy_mode = str(policy.get("mode", "allow"))
+    outputs: dict[str, str] = {}
+    actions_applied: list[str] = []
+    completed_steps = [
+        "Sensitive data detected" if count_sensitive_items(findings) else "No sensitive data detected",
+    ]
+    response_download_url = f"/api/documents/{document['document_id']}/artifacts/original/download"
+    response_download_label = document.get("original_filename", "original")
+    preview_text = source_text[:700]
+    redaction_quality = None
+    workflow_status = "ALLOWED"
+    encryption_status = "not_required"
+    final_text = source_text
+
+    if policy_mode in {"redact", "redact_encrypt"}:
+        redacted_text = redact_text(source_text, findings)
+        redacted_name = _artifact_filename(document, "redacted", "txt")
+        redacted_path = ensure_vault_layout()["redacted"] / redacted_name
+        redacted_path.write_text(redacted_text, encoding="utf-8")
+        redaction_quality = verify_redaction_quality(findings, redacted_text)
+        record_artifact(
+            document["document_id"],
+            "redacted",
+            str(redacted_path),
+            redacted_path.name,
+            {
+                "quality_status": redaction_quality["quality_status"],
+                "coverage_percent": redaction_quality["coverage_percent"],
+            },
+        )
+        outputs["redacted_file"] = str(redacted_path)
+        actions_applied.append("redact")
+        completed_steps.append("Document redacted")
+        preview_text = redacted_text[:700]
+        response_download_url = f"/api/documents/{document['document_id']}/artifacts/redacted/download"
+        response_download_label = redacted_path.name
+        workflow_status = "PROTECTED"
+        final_text = redacted_text
+    else:
+        completed_steps.append("Document allowed")
+
+    if policy_mode == "redact_encrypt":
+        key = generate_encryption_key()
+        key_path = wrap_document_key(document["document_id"], key)
+        record_artifact(
+            document["document_id"],
+            "key",
+            str(key_path),
+            key_path.name,
+            {"wrapped_by": "vault", "algorithm": "Fernet"},
+        )
+        encrypted_text = encrypt_text(source_text, key)
+        encrypted_name = _artifact_filename(document, "encrypted", "txt")
+        encrypted_path = ensure_vault_layout()["encrypted"] / encrypted_name
+        encrypted_path.write_text(encrypted_text, encoding="utf-8")
+        record_artifact(
+            document["document_id"],
+            "encrypted",
+            str(encrypted_path),
+            encrypted_path.name,
+            {"content_scope": "original_document", "algorithm": "Fernet"},
+        )
+        outputs["encrypted_file"] = str(encrypted_path)
+        actions_applied.append("encrypt")
+        completed_steps.append("Original encrypted")
+        encryption_status = "encrypted"
+        workflow_status = "SECURED"
+
+    report_path, _report_payload = _write_compliance_report(
+        document,
+        findings,
+        risk,
+        outputs,
+        actions_applied=actions_applied,
+        final_text=final_text,
+        redaction_quality=redaction_quality,
+        encryption_status=encryption_status,
+        workflow_status=workflow_status,
+    )
+    outputs["report_file"] = str(report_path)
+    completed_steps.append("Vault updated")
+    update_document_status(document["document_id"], workflow_status)
+    log_audit_event(
+        event_type="policy_auto_protect",
+        actor=actor_name,
+        source=source,
+        details={
+            "document_id": document["document_id"],
+            "filename": document.get("original_filename"),
+            "policy_mode": policy_mode,
+            "workflow_status": workflow_status,
+            "actions_applied": actions_applied,
+            "report_file": str(report_path),
+        },
+    )
+
+    status_label = "Encrypted" if policy_mode == "redact_encrypt" else "Redacted" if policy_mode == "redact" else "Allowed"
+    return {
+        "document_id": document["document_id"],
+        "filename": document.get("original_filename"),
+        "risk_level": risk.get("level"),
+        "risk_score": risk.get("score"),
+        "counts": risk.get("counts", {}),
+        "policy": policy,
+        "recommendations": risk.get("recommendations", []),
+        "insights": risk.get("insights", []),
+        "status": workflow_status,
+        "status_label": status_label,
+        "completed_steps": completed_steps,
+        "download": {
+            "label": response_download_label,
+            "url": response_download_url,
+        },
+        "report": {
+            "label": report_path.name,
+            "url": f"/api/documents/{document['document_id']}/artifacts/report/download",
+        },
+        "open_url": f"/api/documents/{document['document_id']}/open" if policy_mode == "redact_encrypt" else None,
+        "preview": preview_text,
+        "findings": findings,
+    }
+
+
+def _process_watch_file(file_path: Path) -> dict | None:
+    actor = "folder-monitor"
+    document, _original_path, source_text, findings, risk = _register_path_document(file_path, actor=actor, source="watch_folder")
+    payload = _run_policy_pipeline(document, source_text, findings, risk, actor=actor, source="watch_folder")
+    log_audit_event(
+        event_type="watch_folder_processed",
+        actor=actor,
+        source="watch_folder",
+        details={
+            "document_id": payload["document_id"],
+            "filename": payload["filename"],
+            "watch_path": str(file_path),
+            "status": payload["status"],
+        },
+    )
+    return payload
+
+
+def _ensure_watch_service() -> None:
+    if vault_is_unlocked() and get_watch_folder_state().get("enabled"):
+        ensure_watch_folder_running(_process_watch_file)
+
+
+def _lock_vault_session() -> None:
+    session["vault_unlocked"] = False
+    lock_vault()
+
+
+def _select_folder_dialog() -> str:
+    root = Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    try:
+        selected = filedialog.askdirectory(title="Select Watch Folder")
+    finally:
+        root.destroy()
+    return str(selected or "").strip()
+
+
+def _validate_watch_folder(folder_path: str) -> Path:
+    if not folder_path:
+        raise ValueError("Watch folder path is required.")
+    resolved = Path(folder_path).expanduser().resolve()
+    if not resolved.exists() or not resolved.is_dir():
+        raise ValueError("Watch folder must be an existing directory.")
+
+    vault_root = ensure_vault_layout()["root"].resolve()
+    if resolved == vault_root or resolved.is_relative_to(vault_root) or vault_root.is_relative_to(resolved):
+        raise ValueError("Watch folder cannot be the vault or contain the vault.")
+    return resolved
 
 
 @app.route("/")
 @require_login
 def home():
-    return render_template("dashboard.html", user=current_user())
+    return dashboard()
 
 
 @app.route("/dashboard")
 @require_login
 def dashboard():
+    if session.pop("allow_dashboard_once", False):
+        return render_template("dashboard.html", user=current_user())
+    _lock_vault_session()
     return render_template("dashboard.html", user=current_user())
+
+
+@app.route("/launch")
+@require_login
+def launch():
+    return render_template("launch.html", user=current_user())
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
-        return render_template("login.html")
+        return render_template("login.html", vault_configured=vault_is_configured())
 
     payload = request.get_json(silent=True) or request.form
     username = str(payload.get("username", "")).strip()
@@ -136,276 +790,303 @@ def login():
     user = authenticate_user(username, password)
     if not user:
         return jsonify({"error": "Invalid credentials"}), 401
-    profile = _get_profile(user["username"])
-    session["username"] = user["username"]
-    session["role"] = user["role"]
-    session["display_name"] = profile["display_name"]
-    session["avatar_url"] = profile["avatar_url"]
-    return jsonify({"message": "Login successful", "role": user["role"]})
+
+    _apply_profile_session(user["username"], role=user["role"])
+    session["vault_unlocked"] = False
+    session["allow_dashboard_once"] = True
+    _ensure_lifecycle_service()
+    return jsonify({"message": "Login successful"})
+
+
+@app.route("/api/vault/unlock", methods=["POST"])
+@require_login
+def vault_unlock_api():
+    payload = request.get_json(silent=True) or request.form
+    pin = str(payload.get("pin", "")).strip()
+    user = current_user() or {}
+    username = str(user.get("username") or session.get("username") or "local-user")
+
+    vault_password = pin
+    vault_key_mode = "system" if (not vault_is_configured() or vault_uses_system_master_key()) else "user"
+
+    try:
+        unlock_vault(vault_password, username, key_mode=vault_key_mode)
+    except ValueError:
+        session["vault_unlocked"] = False
+        return jsonify({"error": "Invalid master PIN"}), 401
+
+    session["vault_unlocked"] = True
+    _ensure_watch_service()
+    _ensure_lifecycle_service()
+    return jsonify({"message": "Vault unlocked", "user": current_user()})
 
 
 @app.route("/logout", methods=["POST"])
 @require_login
 def logout():
     session.clear()
+    stop_watch_folder_runner()
+    stop_lifecycle_runner()
+    lock_vault()
     return jsonify({"message": "Logged out"})
 
 
-@app.route("/user-avatar/<path:filename>")
+@app.route("/api/workspace")
 @require_login
-def user_avatar(filename: str):
-    return send_from_directory(AVATAR_FOLDER, filename)
-
-
-@app.route("/api/profile", methods=["GET", "POST"])
+def workspace_api():
+    _ensure_watch_service()
+    _ensure_lifecycle_service()
+    return jsonify(_workspace_payload())
+@app.route("/api/profile", methods=["GET"])
 @require_login
 def profile_api():
-    user = current_user() or {}
-    username = str(user.get("username", ""))
+    username = str(session.get("username", "")).strip()
+    if not username:
+        return jsonify({"error": "Authentication required"}), 401
+    _apply_profile_session(username)
+    return jsonify(current_user())
+
+
+@app.route("/api/profile", methods=["POST"])
+@require_login
+def update_profile_api():
+    username = str(session.get("username", "")).strip()
     if not username:
         return jsonify({"error": "Authentication required"}), 401
 
-    if request.method == "GET":
-        return jsonify({"profile": _get_profile(username)})
-
-    display_name = str(request.form.get("display_name", "")).strip()
-    if not display_name:
-        display_name = username
-
-    avatar_url = None
-    avatar_file = request.files.get("avatar")
-    if avatar_file and avatar_file.filename:
-        ext = Path(secure_filename(avatar_file.filename)).suffix.lower()
-        if ext not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
-            return jsonify({"error": "Avatar must be an image file (png, jpg, jpeg, webp, gif)."}), 400
-        avatar_name = secure_filename(f"{username}{ext}")
-        avatar_path = Path(AVATAR_FOLDER) / avatar_name
-        avatar_file.save(str(avatar_path))
-        avatar_url = f"/user-avatar/{avatar_name}"
-
-    updated = _set_profile(username, display_name=display_name, avatar_url=avatar_url)
-    session["display_name"] = updated["display_name"]
-    session["avatar_url"] = updated["avatar_url"]
-    return jsonify({"message": "Profile updated", "profile": updated})
+    payload = request.get_json(silent=True) or request.form
+    profile = update_profile(
+        username,
+        display_name=payload.get("display_name"),
+        theme=payload.get("theme"),
+    )
+    _apply_profile_session(username)
+    log_audit_event(
+        event_type="profile_updated",
+        actor=_actor_name(),
+        source="web",
+        details={
+            "display_name": profile.get("display_name"),
+            "theme": profile.get("theme"),
+        },
+    )
+    return jsonify(current_user())
 
 
-@app.route("/api/dashboard-data")
-@require_permission("view_dashboard")
-def dashboard_data():
-    return jsonify({"recent_scans": scan_history, "summary": _build_dashboard_summary()})
+@app.route("/api/profile/avatar", methods=["POST"])
+@require_login
+def upload_profile_avatar_api():
+    username = str(session.get("username", "")).strip()
+    if not username:
+        return jsonify({"error": "Authentication required"}), 401
+    if "avatar" not in request.files:
+        return jsonify({"error": "No avatar uploaded"}), 400
 
-
-@app.route("/scan", methods=["POST"])
-@require_permission("scan")
-def scan():
-    global scan_history
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
-    file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"error": "Empty filename"}), 400
+    file_obj = request.files["avatar"]
+    if not file_obj.filename:
+        return jsonify({"error": "No avatar uploaded"}), 400
 
     try:
-        path = _save_upload(file, app.config["UPLOAD_FOLDER"])
-        extracted_text = read_document_text(path)
-        findings = detect_sensitive_data(extracted_text)
-        risk = build_risk_summary(findings)
-
-        scan_entry = {
-            "filename": path.name,
-            "risk_level": risk["level"],
-            "risk_score": risk["score"],
-            "counts": risk["counts"],
-        }
-        scan_history.insert(0, scan_entry)
-        scan_history = scan_history[:10]
-        total_items = count_sensitive_items(findings)
-        log_scan_event(path.name, risk["level"], risk["score"], total_items, source="web")
+        current_profile = _profile_payload(username)
+        avatar_url = _save_avatar(file_obj, username, current_profile.get("avatar_url", ""))
+        update_profile(username, avatar_url=avatar_url)
+        _apply_profile_session(username)
         log_audit_event(
-            event_type="scan",
-            actor="web-user",
+            event_type="profile_avatar_updated",
+            actor=_actor_name(),
+            source="web",
+            details={"avatar_url": avatar_url},
+        )
+        return jsonify(current_user())
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/system-settings", methods=["GET"])
+@require_login
+def system_settings_api():
+    return jsonify(_system_settings_payload())
+
+
+@app.route("/api/system-settings", methods=["POST"])
+@require_login
+def update_system_settings_api():
+    payload = request.get_json(silent=True) or request.form
+    settings = _save_lifecycle_settings(payload)
+    log_audit_event(
+        event_type="lifecycle_settings_updated",
+        actor=_actor_name(),
+        source="web",
+        details=settings,
+    )
+    return jsonify(settings)
+
+
+@app.route("/api/vault/pin", methods=["POST"])
+@require_login
+@require_vault_unlock
+def change_vault_pin_api():
+    payload = request.get_json(silent=True) or request.form
+    current_pin = str(payload.get("current_pin", "")).strip()
+    new_pin = str(payload.get("new_pin", "")).strip()
+    if len(new_pin) < 4:
+        return jsonify({"error": "New vault PIN must be at least 4 characters."}), 400
+    try:
+        status = change_master_password(current_pin, new_pin)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    if vault_uses_system_master_key():
+        config = load_system_config()
+        config.setdefault("vault", {})["default_master_key"] = new_pin
+        save_system_config(config)
+    log_audit_event(
+        event_type="vault_pin_changed",
+        actor=_actor_name(),
+        source="web",
+        details={"key_mode": status.get("key_mode")},
+    )
+    return jsonify({"message": "Vault PIN updated successfully.", "vault": status})
+
+
+@app.route("/api/watch-folder/pick", methods=["POST"])
+@require_login
+def watch_folder_picker_api():
+    selected = _select_folder_dialog()
+    if not selected:
+        return jsonify({"error": "No folder selected"}), 400
+    resolved = _validate_watch_folder(selected)
+    return jsonify({"path": str(resolved)})
+
+
+@app.route("/api/watch-folder", methods=["GET"])
+@require_login
+def watch_folder_status_api():
+    _ensure_watch_service()
+    return jsonify(get_watch_folder_state())
+
+
+@app.route("/api/watch-folder", methods=["POST"])
+@require_login
+def watch_folder_enable_api():
+    payload = request.get_json(silent=True) or request.form
+    resolved = _validate_watch_folder(str(payload.get("path", "")).strip())
+    state = configure_watch_folder(str(resolved), _actor_name())
+    ensure_watch_folder_running(_process_watch_file)
+    log_audit_event(
+        event_type="watch_folder_enabled",
+        actor=_actor_name(),
+        source="web",
+        details={"path": state.get("path")},
+    )
+    return jsonify(state)
+
+
+@app.route("/api/watch-folder", methods=["DELETE"])
+@require_login
+def watch_folder_disable_api():
+    state = disable_watch_folder(_actor_name())
+    log_audit_event(
+        event_type="watch_folder_disabled",
+        actor=_actor_name(),
+        source="web",
+        details={"path": state.get("path")},
+    )
+    return jsonify(state)
+
+
+
+@app.route("/api/documents/<document_id>/lifecycle/archive", methods=["POST"])
+@require_login
+@require_vault_unlock
+def archive_document_lifecycle(document_id: str):
+    document = get_document(document_id)
+    if not document:
+        return jsonify({"error": "Document not found"}), 404
+    updated = _archive_document_by_id(document_id, actor=_actor_name(), source="web")
+    return jsonify({"message": "Document archived", "document": _document_payload(updated)})
+
+
+@app.route("/api/documents/<document_id>/lifecycle/delete", methods=["POST"])
+@require_login
+@require_vault_unlock
+def secure_delete_document_lifecycle(document_id: str):
+    document = get_document(document_id)
+    if not document:
+        return jsonify({"error": "Document not found"}), 404
+    updated = _secure_delete_document_by_id(document_id, actor=_actor_name(), source="web")
+    return jsonify({"message": "Document securely deleted", "document": _document_payload(updated)})
+
+
+@app.route("/api/documents/<document_id>/artifacts/<artifact_type>/download")
+@require_login
+@require_vault_unlock
+def download_document_artifact(document_id: str, artifact_type: str):
+    artifact = get_latest_artifact(document_id, artifact_type)
+    if not artifact:
+        return jsonify({"error": "Artifact not found"}), 404
+    artifact_path = Path(str(artifact["file_path"]))
+    vault_root = ensure_vault_layout()["root"].resolve()
+    if not artifact_path.is_file() or not artifact_path.resolve().is_relative_to(vault_root):
+        return jsonify({"error": "Artifact file not found"}), 404
+    return send_file(artifact_path, as_attachment=True, download_name=artifact["filename"])
+
+
+@app.route("/api/documents/<document_id>/open", methods=["POST"])
+@require_login
+@require_vault_unlock
+def open_document(document_id: str):
+    document, original_path, _source_text, _findings, _risk = _load_document_context(document_id)
+    artifacts = document.get("artifacts") or {}
+
+    try:
+        if artifacts.get("encrypted"):
+            encrypted_path = Path(str(artifacts["encrypted"]["file_path"]))
+            token = encrypted_path.read_text(encoding="utf-8").strip()
+            plain_text = decrypt_text(token, unwrap_document_key(document_id))
+            opened_as = "Encrypted"
+        elif artifacts.get("redacted"):
+            redacted_path = Path(str(artifacts["redacted"]["file_path"]))
+            plain_text = redacted_path.read_text(encoding="utf-8")
+            opened_as = "Redacted"
+        else:
+            plain_text = read_document_text(original_path)
+            opened_as = "Allowed"
+
+        log_audit_event(
+            event_type="open_document",
+            actor=_actor_name(),
             source="web",
             details={
-                "filename": path.name,
-                "risk_level": risk["level"],
-                "risk_score": risk["score"],
-                "total_sensitive_items": total_items,
+                "document_id": document_id,
+                "opened_as": opened_as,
             },
         )
-
         return jsonify(
             {
-                "filename": path.name,
-                "findings": findings,
-                "risk_score": risk["score"],
-                "risk_level": risk["level"],
-                "counts": risk["counts"],
-                "insights": risk["insights"],
-                "extracted_preview": extracted_text[:700],
+                "document_id": document_id,
+                "filename": document.get("original_filename"),
+                "opened_as": opened_as,
+                "content": plain_text,
             }
         )
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
-
-
-@app.route("/protect", methods=["POST"])
-@require_permission("protect")
-def protect():
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
-    action = request.form.get("action", "").strip().lower()
-    if action not in {"redact", "encrypt"}:
-        return jsonify({"error": "Action must be redact or encrypt"}), 400
-
-    file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"error": "Empty filename"}), 400
-
-    try:
-        path = _save_upload(file, app.config["UPLOAD_FOLDER"])
-        source_text = read_document_text(path)
-        findings = detect_sensitive_data(source_text)
-
-        if action == "redact":
-            protected = redact_text(source_text, findings)
-            out_path = Path(OUTPUT_FOLDER) / f"{path.stem}.redacted.txt"
-            out_path.write_text(protected, encoding="utf-8")
-            quality = verify_redaction_quality(findings, protected)
-            log_audit_event(
-                event_type="protect_redact",
-                actor="web-user",
-                source="web",
-                details={
-                    "filename": path.name,
-                    "output_file": str(out_path),
-                    "quality_status": quality["quality_status"],
-                    "leak_count": quality["leak_count"],
-                },
-            )
-            return jsonify(
-                {
-                    "action": "redact",
-                    "output_file": str(out_path),
-                    "quality": quality,
-                    "preview": protected[:700],
-                }
-            )
-
-        key = generate_encryption_key()
-        key_path = Path(KEY_FOLDER) / f"{path.stem}.key"
-        key_path.write_bytes(key)
-        encrypted = encrypt_text(source_text, key)
-        out_path = Path(OUTPUT_FOLDER) / f"{path.stem}.encrypted.txt"
-        out_path.write_text(encrypted, encoding="utf-8")
-        log_audit_event(
-            event_type="protect_encrypt",
-            actor="web-user",
-            source="web",
-            details={
-                "filename": path.name,
-                "output_file": str(out_path),
-                "key_file": str(key_path),
-            },
-        )
-        return jsonify(
-            {
-                "action": "encrypt",
-                "output_file": str(out_path),
-                "key_file": str(key_path),
-                "preview": encrypted[:220],
-            }
-        )
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
-
-
-@app.route("/verify-redaction", methods=["POST"])
-@require_permission("verify")
-def verify_redaction():
-    if "original" not in request.files or "protected" not in request.files:
-        return jsonify({"error": "Upload both original and protected files"}), 400
-
-    original = request.files["original"]
-    protected = request.files["protected"]
-    if original.filename == "" or protected.filename == "":
-        return jsonify({"error": "Both files must have valid names"}), 400
-
-    try:
-        original_path = _save_upload(original, app.config["UPLOAD_FOLDER"])
-        protected_path = _save_upload(protected, app.config["UPLOAD_FOLDER"])
-
-        original_text = read_document_text(original_path)
-        protected_text = read_document_text(protected_path)
-        original_findings = detect_sensitive_data(original_text)
-        quality = verify_redaction_quality(original_findings, protected_text)
-        log_audit_event(
-            event_type="verify_redaction",
-            actor="web-user",
-            source="web",
-            details={
-                "original_file": original_path.name,
-                "protected_file": protected_path.name,
-                "quality_status": quality["quality_status"],
-                "leak_count": quality["leak_count"],
-            },
-        )
-        return jsonify(quality)
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
-
-
-@app.route("/admin/export-audit", methods=["POST"])
-@require_permission("admin_export")
-def admin_export_audit():
-    try:
-        result = export_signed_audit(limit=5000)
-        user = current_user() or {"username": "unknown"}
-        log_audit_event(
-            event_type="export_audit",
-            actor=user["username"],
-            source="web",
-            details=result,
-        )
-        return jsonify(result)
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
-
-
-@app.route("/admin/retention-cleanup", methods=["POST"])
-@require_permission("admin_cleanup")
-def admin_retention_cleanup():
-    try:
-        result = run_retention_cleanup()
-        user = current_user() or {"username": "unknown"}
-        log_audit_event(
-            event_type="retention_cleanup",
-            actor=user["username"],
-            source="web",
-            details=result,
-        )
-        return jsonify(result)
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
-
-
-@app.route("/admin/ocr-diagnostics", methods=["POST"])
-@require_permission("admin_cleanup")
-def admin_ocr_diagnostics():
-    try:
-        result = run_ocr_diagnostics()
-        user = current_user() or {"username": "unknown"}
-        log_audit_event(
-            event_type="ocr_diagnostics",
-            actor=user["username"],
-            source="web",
-            details=result,
-        )
-        return jsonify(result)
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        return jsonify({"error": "Unable to open this document right now."}), 400
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(
+        host=os.environ.get("PRIVGUARD_HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", "5000")),
+        debug=os.environ.get("PRIVGUARD_DEBUG", "0") == "1",
+    )
+
+
+
+
+
+
+
+
+
+

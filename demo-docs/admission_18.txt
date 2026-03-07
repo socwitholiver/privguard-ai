@@ -1,0 +1,7 @@
+﻿Student Admission Form 18
+Applicant Name: Ruth Nyambura
+Guardian Phone: 0789012345
+Guardian Email: secure@afyadata.co.ke
+National ID: 90123456
+Fee Wallet Account: 8899001122334
+Medical Notes Password: school18!pass

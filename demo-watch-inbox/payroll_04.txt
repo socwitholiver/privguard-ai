@@ -1,0 +1,9 @@
+﻿Payroll Report Batch 4
+Employee: David Mwangi
+National ID: 56789012
+KRA PIN: D456789012E
+Phone: 0745678901
+Email: admissions@baraka.ac.ke
+Salary Account: 4455667788990
+Monthly Net Pay: KES 52000
+Payroll Password Reset Token: PAY4-SECURE-2026
