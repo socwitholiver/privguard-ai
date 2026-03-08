@@ -1,0 +1,10 @@
+Student Admission Packet 30
+Batch: PG-DEMO-0146
+Student Name: John Mwangi
+Guardian Phone: 0767890123
+Guardian Email: john.mwangi@pendo.co.ke
+National ID: 28901234
+KRA PIN: A678901234G
+Fee Account: 0101462233445566
+Medical Login Code: school-30-secure
+Amount Due: KES 132500

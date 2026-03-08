@@ -45,6 +45,7 @@ _STOP_EVENT = threading.Event()
 _PROCESSOR: Callable[[Path], dict | None] | None = None
 _OBSERVER = None
 _RUNTIME_MODE = "idle"
+_RUNNING_PATH = ""
 
 
 def _utc_now() -> str:
@@ -62,6 +63,8 @@ def _default_state() -> Dict[str, object]:
         "last_file": None,
         "last_document_id": None,
         "last_error": None,
+        "current_file": None,
+        "current_started_at": None,
         "processed": {},
         "seen": {},
     }
@@ -89,10 +92,65 @@ def _set_runtime_mode(mode: str) -> None:
     _RUNTIME_MODE = mode
 
 
+def _progress_snapshot(state: Dict[str, object]) -> dict:
+    folder_text = str(state.get("path") or "").strip()
+    if not folder_text:
+        return {
+            "supported_total": 0,
+            "processed_count": 0,
+            "pending_count": 0,
+            "progress_percent": 0,
+            "estimated_completion": "Select a folder to begin monitoring.",
+        }
+
+    folder = Path(folder_text)
+    if not folder.exists() or not folder.is_dir():
+        return {
+            "supported_total": 0,
+            "processed_count": 0,
+            "pending_count": 0,
+            "progress_percent": 0,
+            "estimated_completion": "Watch folder is unavailable.",
+        }
+
+    entries = [entry for entry in folder.iterdir() if _watchable_file(entry)]
+    processed = dict(state.get("processed") or {})
+    processed_count = 0
+    for entry in entries:
+        try:
+            stats = entry.stat()
+        except FileNotFoundError:
+            continue
+        signature = f"{stats.st_mtime_ns}:{stats.st_size}"
+        if processed.get(str(entry.resolve())) == signature:
+            processed_count += 1
+
+    supported_total = len(entries)
+    pending_count = max(supported_total - processed_count, 0)
+    progress_percent = int((processed_count / supported_total) * 100) if supported_total else 0
+    if supported_total == 0:
+        estimated = "No supported files detected yet."
+    elif pending_count == 0:
+        estimated = "Scan backlog complete. Monitoring for new files."
+    elif pending_count == 1:
+        estimated = "1 file remaining in the queue."
+    else:
+        estimated = f"{pending_count} files remaining in the queue."
+
+    return {
+        "supported_total": supported_total,
+        "processed_count": processed_count,
+        "pending_count": pending_count,
+        "progress_percent": progress_percent,
+        "estimated_completion": estimated,
+    }
+
+
 def _state_view(state: Dict[str, object]) -> dict:
     public_state = dict(state)
     public_state.pop("processed", None)
     public_state.pop("seen", None)
+    public_state.update(_progress_snapshot(state))
     public_state["running"] = bool((_THREAD and _THREAD.is_alive()) or (_OBSERVER is not None))
     public_state["mode"] = _RUNTIME_MODE
     return public_state
@@ -103,14 +161,14 @@ def get_watch_folder_state() -> dict:
         return _state_view(_load_state())
 
 
-def configure_watch_folder(folder_path: str, actor: str) -> dict:
+def configure_watch_folder(folder_path: str, actor: str, *, reset_progress: bool = False) -> dict:
     resolved = Path(folder_path).expanduser().resolve()
     if not resolved.exists() or not resolved.is_dir():
         raise ValueError("Watch folder must be an existing directory.")
 
     with _STATE_LOCK:
         state = _load_state()
-        if str(resolved) != str(state.get("path") or ""):
+        if reset_progress or str(resolved) != str(state.get("path") or ""):
             state["processed"] = {}
             state["seen"] = {}
         state["enabled"] = True
@@ -118,6 +176,8 @@ def configure_watch_folder(folder_path: str, actor: str) -> dict:
         state["configured_by"] = actor
         state["configured_at"] = _utc_now()
         state["last_error"] = None
+        state["current_file"] = None
+        state["current_started_at"] = None
         _save_state(state)
         return _state_view(state)
 
@@ -128,13 +188,15 @@ def disable_watch_folder(actor: str | None = None) -> dict:
         state["enabled"] = False
         state["configured_by"] = actor or state.get("configured_by")
         state["last_error"] = None
+        state["current_file"] = None
+        state["current_started_at"] = None
         _save_state(state)
     stop_watch_folder_runner()
     return get_watch_folder_state()
 
 
 def stop_watch_folder_runner() -> None:
-    global _THREAD, _OBSERVER
+    global _THREAD, _OBSERVER, _RUNNING_PATH
     _STOP_EVENT.set()
     thread = _THREAD
     if thread and thread.is_alive() and thread is not threading.current_thread():
@@ -147,21 +209,32 @@ def stop_watch_folder_runner() -> None:
         except Exception:
             pass
     _OBSERVER = None
+    _RUNNING_PATH = ""
     _STOP_EVENT.clear()
     _set_runtime_mode("idle")
 
 
-def ensure_watch_folder_running(processor: Callable[[Path], dict | None]) -> dict:
-    global _PROCESSOR, _THREAD, _OBSERVER
+def ensure_watch_folder_running(
+    processor: Callable[[Path], dict | None],
+    *,
+    force_restart: bool = False,
+) -> dict:
+    global _PROCESSOR, _THREAD, _OBSERVER, _RUNNING_PATH
     _PROCESSOR = processor
     state = _load_state()
     if not state.get("enabled"):
         _set_runtime_mode("idle")
         return _state_view(state)
-    if _OBSERVER is not None or (_THREAD and _THREAD.is_alive()):
-        return _state_view(state)
 
     folder = Path(str(state.get("path") or "")).expanduser()
+    resolved_path = str(folder.resolve()) if folder.exists() else str(folder)
+    runner_active = _OBSERVER is not None or (_THREAD and _THREAD.is_alive())
+    if runner_active and (_RUNNING_PATH != resolved_path or force_restart):
+        stop_watch_folder_runner()
+        runner_active = False
+    if runner_active:
+        return _state_view(state)
+
     if Observer is not None and folder.exists() and folder.is_dir():
         handler = _WatchdogHandler()
         observer = Observer()
@@ -169,13 +242,21 @@ def ensure_watch_folder_running(processor: Callable[[Path], dict | None]) -> dic
         observer.daemon = True
         observer.start()
         _OBSERVER = observer
+        _RUNNING_PATH = resolved_path
         _set_runtime_mode("event")
-        _run_scan_pass()
+        scan_thread = threading.Thread(
+            target=_run_scan_pass,
+            kwargs={"require_stable_seen": False},
+            name="privguard-folder-watch-initial-scan",
+            daemon=True,
+        )
+        scan_thread.start()
         return get_watch_folder_state()
 
     _STOP_EVENT.clear()
     _THREAD = threading.Thread(target=_run_loop, name="privguard-folder-watch", daemon=True)
     _THREAD.start()
+    _RUNNING_PATH = resolved_path
     _set_runtime_mode("poll")
     return get_watch_folder_state()
 
@@ -229,6 +310,13 @@ def _process_entry(entry: Path, *, require_stable_seen: bool = True) -> bool:
         return False
 
     try:
+        with _STATE_LOCK:
+            state = _load_state()
+            state["current_file"] = entry.name
+            state["current_started_at"] = _utc_now()
+            state["last_error"] = None
+            _save_state(state)
+
         result = _PROCESSOR(entry) or {}
         processed[path_key] = signature
         with _STATE_LOCK:
@@ -240,14 +328,21 @@ def _process_entry(entry: Path, *, require_stable_seen: bool = True) -> bool:
             state["last_file"] = entry.name
             state["last_document_id"] = result.get("document_id")
             state["last_error"] = None
+            state["current_file"] = None
+            state["current_started_at"] = None
             _save_state(state)
         return True
     except Exception as exc:
+        with _STATE_LOCK:
+            state = _load_state()
+            state["current_file"] = None
+            state["current_started_at"] = None
+            _save_state(state)
         _set_last_error(str(exc))
         return False
 
 
-def _run_scan_pass() -> bool:
+def _run_scan_pass(require_stable_seen: bool = True) -> bool:
     with _STATE_LOCK:
         state = _load_state()
     if not state.get("enabled"):
@@ -265,7 +360,7 @@ def _run_scan_pass() -> bool:
 
     changed = False
     for entry in sorted(folder.iterdir(), key=lambda item: item.name.lower()):
-        changed = _process_entry(entry) or changed
+        changed = _process_entry(entry, require_stable_seen=require_stable_seen) or changed
     with _STATE_LOCK:
         state = _load_state()
         state["last_scan_at"] = _utc_now()
@@ -291,5 +386,4 @@ class _WatchdogHandler(FileSystemEventHandler):  # type: ignore[misc]
             return
         time.sleep(0.2)
         _process_entry(Path(str(event.src_path)), require_stable_seen=False)
-
 

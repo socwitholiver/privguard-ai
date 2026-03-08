@@ -1,9 +1,0 @@
-﻿Payroll Report Batch 6
-Employee: Faith Jepkoech
-National ID: 78901234
-KRA PIN: F678901234G
-Phone: 0767890123
-Email: support@mawingu.co.ke
-Salary Account: 6677889900112
-Monthly Net Pay: KES 55500
-Payroll Password Reset Token: PAY6-SECURE-2026

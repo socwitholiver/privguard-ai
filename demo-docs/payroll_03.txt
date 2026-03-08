@@ -1,9 +1,0 @@
-﻿Payroll Report Batch 3
-Employee: Catherine Wambui
-National ID: 45678901
-KRA PIN: C345678901D
-Phone: 0734567890
-Email: hr@twigaindustries.co.ke
-Salary Account: 3344556677889
-Monthly Net Pay: KES 50250
-Payroll Password Reset Token: PAY3-SECURE-2026

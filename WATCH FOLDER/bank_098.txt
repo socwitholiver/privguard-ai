@@ -1,0 +1,10 @@
+field,value
+batch,PG-DEMO-0487
+customer,Linet Achieng
+national_id,29012345
+kra_pin,A789012345H
+phone,0778901234
+email,linet.achieng@afya.or.ke
+account,0104872233445547
+salary,KES 542600
+password,bank-98-reset

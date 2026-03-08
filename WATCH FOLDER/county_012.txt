@@ -1,0 +1,10 @@
+[2026-03-08] Intake batch PG-DEMO-0059 opened
+Client Name: Naomi Atieno
+Phone: 0711122233
+Email: naomi.atieno@county.go.ke
+National ID: 31234567
+KRA PIN: A901234567K
+Payment Account: 0100592233445569
+Password: county-12-access
+Balance: KES 95180
+[2026-03-08] Intake batch PG-DEMO-0059 closed

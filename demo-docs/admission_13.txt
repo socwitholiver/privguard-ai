@@ -1,7 +1,0 @@
-﻿Student Admission Form 13
-Applicant Name: Martin Odhiambo
-Guardian Phone: 0734567890
-Guardian Email: hr@twigaindustries.co.ke
-National ID: 45678901
-Fee Wallet Account: 3344556677889
-Medical Notes Password: school13!pass

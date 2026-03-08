@@ -1,7 +1,0 @@
-﻿Student Admission Form 15
-Applicant Name: Oscar Kiprono
-Guardian Phone: 0756789012
-Guardian Email: admin@countyforms.go.ke
-National ID: 67890123
-Fee Wallet Account: 5566778899001
-Medical Notes Password: school15!pass

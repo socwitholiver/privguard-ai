@@ -1,0 +1,10 @@
+# Vendor Contract 18
+Batch: PG-DEMO-0088
+Vendor Name: Peter Kiptoo
+Contact Phone: 0789012345
+Contact Email: peter.kiptoo@elimu.co.ke
+National ID: 30123456
+KRA PIN: A890123456J
+Bank Account: 0100882233445598
+Secret Key: contract-18-vault
+Payment Amount: KES 259800

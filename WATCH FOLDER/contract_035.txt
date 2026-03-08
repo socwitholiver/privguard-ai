@@ -1,0 +1,10 @@
+# Vendor Contract 35
+Batch: PG-DEMO-0173
+Vendor Name: Faith Wanjiku
+Contact Phone: 0734567890
+Contact Email: faith.wanjiku@tumaini.org
+National ID: 25678901
+KRA PIN: A345678901D
+Bank Account: 0101732233445593
+Secret Key: contract-35-vault
+Payment Amount: KES 278500

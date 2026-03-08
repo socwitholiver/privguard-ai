@@ -1,0 +1,10 @@
+field,value
+batch,PG-DEMO-0462
+customer,Kevin Mutua
+national_id,24567890
+kra_pin,A234567890C
+phone,0723456789
+email,kevin.mutua@baraka.co.ke
+account,0104622233445522
+salary,KES 524100
+password,bank-93-reset

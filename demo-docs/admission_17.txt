@@ -1,7 +1,0 @@
-﻿Student Admission Form 17
-Applicant Name: Quincy Barasa
-Guardian Phone: 0778901234
-Guardian Email: finance@kilimo.co.ke
-National ID: 89012345
-Fee Wallet Account: 7788990011223
-Medical Notes Password: school17!pass

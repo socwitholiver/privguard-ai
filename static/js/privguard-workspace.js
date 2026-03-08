@@ -22,6 +22,7 @@ const icons = {
 };
 
 let workspaceState = { user: null, pendingScreen: null, pendingOpenUrl: null };
+let liveWatchState = { lastProcessedAt: null, lastDocumentId: null, processedCount: 0, audioReady: false, audioContext: null };
 
 function escapeHtml(value) {
     return String(value || "")
@@ -46,6 +47,53 @@ function displayStatusLabel(label) {
 
 function formatFindingType(type) {
     return findingLabels[type] || String(type || "unknown").replace(/_/g, " ");
+}
+
+
+function markAudioReady() {
+    liveWatchState.audioReady = true;
+}
+
+function playScanCompleteTone() {
+    if (!liveWatchState.audioReady) return;
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) return;
+    try {
+        if (!liveWatchState.audioContext) liveWatchState.audioContext = new AudioContextCtor();
+        const context = liveWatchState.audioContext;
+        if (context.state === "suspended") context.resume();
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(880, context.currentTime);
+        gain.gain.setValueAtTime(0.0001, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.24);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start();
+        oscillator.stop(context.currentTime + 0.25);
+    } catch (_) {
+    }
+}
+
+function hasNewCompletedScan(state) {
+    if (!state) return false;
+    const processedCount = Number(state.processed_count || 0);
+    const lastProcessedAt = String(state.last_processed_at || "");
+    const lastDocumentId = String(state.last_document_id || "");
+    return (
+        processedCount > Number(liveWatchState.processedCount || 0)
+        || (lastProcessedAt && lastProcessedAt !== liveWatchState.lastProcessedAt)
+        || (lastDocumentId && lastDocumentId !== liveWatchState.lastDocumentId)
+    );
+}
+
+function syncLiveWatchState(state) {
+    if (!state) return;
+    liveWatchState.processedCount = Number(state.processed_count || 0);
+    liveWatchState.lastProcessedAt = String(state.last_processed_at || "");
+    liveWatchState.lastDocumentId = String(state.last_document_id || "");
 }
 
 function formatTimestamp(value) {
@@ -234,9 +282,15 @@ function renderUser(user) {
 }
 
 function renderSummary(summary, files) {
-    const scanned = Number(summary && summary.documents_scanned ? summary.documents_scanned : (files || []).length || 0);
-    const highRisk = Number(summary && summary.risk_distribution && summary.risk_distribution.High ? summary.risk_distribution.High : 0);
-    const protectedCount = (files || []).filter((file) => ["Encrypted", "Redacted", "Allowed"].includes(file.status_label)).length;
+    const scanned = Number(summary && summary.documents_scanned != null ? summary.documents_scanned : (files || []).length || 0);
+    const highRisk = Number(summary && summary.high_risk_alerts != null
+        ? summary.high_risk_alerts
+        : summary && summary.risk_distribution && summary.risk_distribution.High
+            ? summary.risk_distribution.High
+            : 0);
+    const protectedCount = Number(summary && summary.protected_outputs != null
+        ? summary.protected_outputs
+        : (files || []).filter((file) => ["Encrypted", "Redacted", "Allowed"].includes(file.status_label)).length);
     const averageRisk = Number(summary && summary.average_risk_score ? summary.average_risk_score : 0);
 
     document.getElementById("metricScanned").textContent = scanned;
@@ -674,6 +728,8 @@ function attachTableActions() {
 
 window.addEventListener("DOMContentLoaded", async () => {
     applyTheme(document.body.dataset.theme || "dark");
+    window.addEventListener("pointerdown", markAudioReady, { once: true });
+    window.addEventListener("keydown", markAudioReady, { once: true });
 
     document.getElementById("openWatchFolderBtn").addEventListener("click", () => setActiveScreen("watch"));
     document.getElementById("logoutBtn").addEventListener("click", logout);
@@ -693,5 +749,101 @@ window.addEventListener("DOMContentLoaded", async () => {
     attachTableActions();
     setActiveScreen("dashboard");
     await loadWorkspace();
-    window.setInterval(loadWorkspace, 5000);
+    window.setInterval(loadWorkspace, 1000);
+});
+
+function demoFileCount() {
+    return Number(document.body.dataset.demoFileCount || "500");
+}
+
+const __privguardRenderWatchFolder = renderWatchFolder;
+renderWatchFolder = function (state) {
+    __privguardRenderWatchFolder(state);
+    const queued = document.getElementById("watchQueuedCount");
+    const processed = document.getElementById("watchProcessedCount");
+    const pending = document.getElementById("watchPendingCount");
+    const current = document.getElementById("watchCurrentFile");
+    const hint = document.getElementById("watchCompletionHint");
+    if (queued) queued.textContent = String(state && state.supported_total ? state.supported_total : 0);
+    if (processed) processed.textContent = String(state && state.processed_count ? state.processed_count : 0);
+    if (pending) pending.textContent = String(state && state.pending_count ? state.pending_count : 0);
+    if (current) current.textContent = state && state.current_file ? state.current_file : "Waiting for next file";
+    if (hint) hint.textContent = state && state.estimated_completion ? `${state.estimated_completion} (${state.progress_percent || 0}% complete)` : "No scan backlog yet";
+};
+
+async function loadWatchFolderStatus() {
+    try {
+        const state = await api("/api/watch-folder");
+        if (!state) return;
+        const completedScanChanged = hasNewCompletedScan(state);
+        renderWatchFolder(state);
+        if (completedScanChanged) {
+            syncLiveWatchState(state);
+            playScanCompleteTone();
+            await loadWorkspace();
+        } else {
+            syncLiveWatchState(state);
+        }
+    } catch (_) {
+    }
+}
+
+async function saveWatchFolderWithRescan(forceRescan) {
+    const path = document.getElementById("watchFolderPath").value.trim();
+    if (!path) {
+        document.getElementById("watchFolderStatus").textContent = "Enter a folder path first.";
+        return;
+    }
+    try {
+        const state = await api("/api/watch-folder", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path, force_rescan: !!forceRescan }),
+        });
+        if (!state) return;
+        renderWatchFolder(state);
+        setActiveScreen("watch");
+    } catch (error) {
+        document.getElementById("watchFolderStatus").textContent = error.message;
+    }
+}
+
+async function useDemoWatchFolder() {
+    const path = document.body.dataset.demoWatchFolder || "";
+    if (!path) {
+        document.getElementById("watchFolderStatus").textContent = "WATCH FOLDER is not configured.";
+        return;
+    }
+    document.getElementById("watchFolderPath").value = path;
+    document.getElementById("watchFolderStatus").textContent = `Selected WATCH FOLDER: ${path}. Restarting watch mode and rescanning ${demoFileCount()} synthetic files...`;
+    await saveWatchFolderWithRescan(true);
+}
+
+async function rebuildDemoWorkflow() {
+    const statusNode = document.getElementById("watchFolderStatus");
+    const count = demoFileCount();
+    if (statusNode) statusNode.textContent = `Rebuilding the ${count}-file demo workflow. Existing demo vault outputs and activity will be cleared first...`;
+    try {
+        const data = await api("/api/demo/rebuild", { method: "POST" });
+        if (!data) return;
+        if (data.watch_folder && data.watch_folder.path) {
+            document.getElementById("watchFolderPath").value = data.watch_folder.path;
+        }
+        await loadWorkspace();
+        await loadWatchFolderStatus();
+        setActiveScreen("watch");
+        if (statusNode) statusNode.textContent = data.message || `Rebuilt ${count} synthetic demo files.`;
+    } catch (error) {
+        if (statusNode) statusNode.textContent = error.message;
+    }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+    const openBtn = document.getElementById("openWatchFolderBtn");
+    const demoBtn = document.getElementById("useDemoWatchFolderBtn");
+    const rebuildBtn = document.getElementById("rebuildDemoWorkflowBtn");
+    if (openBtn) openBtn.addEventListener("click", useDemoWatchFolder);
+    if (demoBtn) demoBtn.addEventListener("click", useDemoWatchFolder);
+    if (rebuildBtn) rebuildBtn.addEventListener("click", rebuildDemoWorkflow);
+    window.setInterval(loadWatchFolderStatus, 1000);
 });

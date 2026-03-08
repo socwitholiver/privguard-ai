@@ -1,0 +1,10 @@
+Payroll Report 66
+Batch: PG-DEMO-0330
+Employee Name: David Kiprono
+National ID: 32345678
+KRA PIN: B012345678L
+Phone: 0722233344
+Email: david.kiprono@safiri.co.ke
+Salary Account: 0103302233445570
+Monthly Salary: KES 73350
+Passcode: PAY-66-SECURE-2026

@@ -1,0 +1,10 @@
+Payroll Report 31
+Batch: PG-DEMO-0155
+Employee Name: Mercy Chebet
+National ID: 27890123
+KRA PIN: A567890123F
+Phone: 0756789012
+Email: mercy.chebet@jambo.co.ke
+Salary Account: 0101552233445575
+Monthly Salary: KES 56725
+Passcode: PAY-31-SECURE-2026

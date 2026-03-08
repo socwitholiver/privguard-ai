@@ -1,0 +1,10 @@
+[2026-03-08] Intake batch PG-DEMO-0014 opened
+Client Name: Brian Otieno
+Phone: 0745678901
+Email: brian.otieno@harvest.co.ke
+National ID: 26789012
+KRA PIN: A456789012E
+Payment Account: 0100142233445524
+Password: county-3-access
+Balance: KES 89420
+[2026-03-08] Intake batch PG-DEMO-0014 closed

@@ -1,7 +1,0 @@
-﻿Student Admission Form 20
-Applicant Name: Teresa Adhiambo
-Guardian Phone: 0701234567
-Guardian Email: audit@pamoja.or.ke
-National ID: 22334455
-Fee Wallet Account: 1011223344556
-Medical Notes Password: school20!pass

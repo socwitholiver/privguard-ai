@@ -1,7 +1,0 @@
-﻿Student Admission Form 19
-Applicant Name: Samuel Maina
-Guardian Phone: 0790123456
-Guardian Email: legal@ushahidi.co.ke
-National ID: 11223344
-Fee Wallet Account: 9900112233445
-Medical Notes Password: school19!pass

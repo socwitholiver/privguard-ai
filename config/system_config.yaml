@@ -17,6 +17,9 @@ vault:
 watch_folder:
   state_path: instance/watch_folder_state.json
   poll_seconds: 3
+demo:
+  watch_folder_dir: WATCH FOLDER
+  synthetic_file_count: 500
 ocr:
   sharp_preprocessing: true
   min_text_height_px: 1200

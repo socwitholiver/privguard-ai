@@ -1,9 +1,0 @@
-﻿Payroll Report Batch 8
-Employee: Hellen Atieno
-National ID: 90123456
-KRA PIN: H890123456J
-Phone: 0789012345
-Email: secure@afyadata.co.ke
-Salary Account: 8899001122334
-Monthly Net Pay: KES 59000
-Payroll Password Reset Token: PAY8-SECURE-2026

@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PrivGuard AI</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/privguard-cyber-ui.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/privguard-cyber-ui.css', v=asset_version) }}">
 </head>
-<body class="pg-dashboard-body" data-theme="{{ user.theme or 'dark' }}">
+<body class="pg-dashboard-body" data-theme="{{ user.theme or 'dark' }}" data-demo-watch-folder="{{ demo_watch_folder }}" data-demo-file-count="{{ demo_file_count }}">
     <div class="pg-app-shell">
         <header class="pg-topbar">
             <div class="pg-brand">
@@ -71,12 +71,12 @@
                     <div class="pg-screen-head">
                         <div>
                             <h1 class="pg-screen-title">PrivGuard AI - Secure Workspace</h1>
-                            <p class="pg-screen-copy">PrivGuard now works as a watch-folder protection layer. You point it at a folder, drop documents there, and the engine scans, redacts, encrypts, and stores artifacts in the background.</p>
+                            <p class="pg-screen-copy">PrivGuard now works through one default intake called WATCH FOLDER. Drop sensitive files there and the engine scans, redacts, encrypts, and stores artifacts in the background.</p>
                         </div>
                         <div class="pg-screen-actions">
                             <button class="pg-button" id="openWatchFolderBtn" type="button">
                                 <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 13H7a5 5 0 1 1 5 5c-1.38 0-2.5 1.12-2.5 2.5V22h5v-1.5c0-.28.22-.5.5-.5a9 9 0 0 0 0-18z"></path></svg>
-                                Configure Watch Folder
+                                Use WATCH FOLDER
                             </button>
                         </div>
                     </div>
@@ -114,7 +114,7 @@
                                 <div class="pg-step-row"><div class="pg-cell-strong">Latest Protected File</div><div id="dashboardLatestFile">Waiting for watch-folder input</div></div>
                                 <div class="pg-step-row"><div class="pg-cell-strong">Latest Outcome</div><div id="dashboardLatestOutcome">No protected output yet</div></div>
                             </div>
-                            <div class="pg-status-box">Choose any folder on this machine that contains documents you want PrivGuard to scan, redact, and encrypt automatically while the dashboard updates.</div>
+                            <div class="pg-status-box">WATCH FOLDER is the default intake location. Files placed there are scanned, redacted, and encrypted automatically.</div>
                         </section>
 
                         <section class="pg-card">
@@ -144,7 +144,7 @@
                     <div class="pg-screen-head">
                         <div>
                             <h1 class="pg-screen-title">Watch Folder</h1>
-                            <p class="pg-screen-copy">This is the only document intake path. Configure a folder, drop files into it, and PrivGuard protects them automatically in the background.</p>
+                            <p class="pg-screen-copy">This is the only document intake path. WATCH FOLDER is the default intake location for sensitive files, and PrivGuard protects them automatically in the background.</p>
                         </div>
                     </div>
 
@@ -153,20 +153,25 @@
                             <div class="pg-card-head">
                                 <div>
                                     <h2 class="pg-card-title">Configure Intake Folder</h2>
-                                    <p class="pg-card-copy">Point PrivGuard at a local folder. Every supported file placed there will be scanned, classified, redacted, encrypted if required, and stored in the vault.</p>
+                                    <p class="pg-card-copy">WATCH FOLDER is preloaded with {{ demo_file_count }} synthetic sensitive files. PrivGuard scans everything already inside it, then keeps watching for new files.</p>
                                 </div>
                                 <span id="watchBadge" class="pg-badge pg-badge-risk-safe">Watch Off</span>
                             </div>
-                            <div class="pg-upload-actions">
-                                <div class="pg-folder-display" id="watchFolderPathDisplay">No folder selected</div>
-                                <input id="watchFolderPath" type="hidden" value="">
-                                <button class="pg-button" id="pickWatchFolderBtn" type="button">Browse Folder</button>
-                                <button class="pg-button-secondary" id="stopWatchFolderBtn" type="button">Stop</button>
-                            </div>
-                            <div id="watchFolderStatus" class="pg-status-box">Watch Folder is off. Point PrivGuard at an inbound folder to secure new files automatically.</div>
+                            <div class="pg-demo-cta">
+    <button class="pg-button pg-demo-cta-button" id="useDemoWatchFolderBtn" type="button">Use WATCH FOLDER</button>
+    <button class="pg-button-secondary" id="rebuildDemoWorkflowBtn" type="button">Rebuild Demo</button>
+    <div class="pg-demo-cta-copy">Instantly load, reset, and repeat the {{ demo_file_count }}-file synthetic sensitive-data workflow.</div>
+</div>
+<div class="pg-upload-actions">
+    <div class="pg-folder-display" id="watchFolderPathDisplay">No folder selected</div>
+    <input id="watchFolderPath" type="hidden" value="">
+    <button class="pg-button-secondary" id="pickWatchFolderBtn" type="button">Select Folder</button>
+    <button class="pg-button-secondary" id="stopWatchFolderBtn" type="button">Stop</button>
+</div>
+                            <div id="watchFolderStatus" class="pg-status-box">Watch Folder is off. Activate WATCH FOLDER and PrivGuard will immediately scan everything inside it.</div>
                             <div class="pg-monitor-note">
-                                <div class="pg-cell-strong">Demo dataset</div>
-                                <div>Select any existing folder on this machine. Once watching is enabled, every supported file placed there will be processed automatically.</div>
+                                <div class="pg-cell-strong">Default intake</div>
+                                <div>Default watch folder: {{ demo_watch_folder }}. It is rebuilt to {{ demo_file_count }} synthetic sensitive files whenever you need a clean demo run.</div>
                             </div>
                         </section>
 
@@ -179,6 +184,11 @@
                             </div>
                             <div class="pg-step-list">
                                 <div class="pg-step-row"><div class="pg-cell-strong">Engine State</div><div id="watchEngineState">Idle</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Files Queued</div><div id="watchQueuedCount">0</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Files Processed</div><div id="watchProcessedCount">0</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Pending Queue</div><div id="watchPendingCount">0</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Current Scan</div><div id="watchCurrentFile">Waiting for next file</div></div>
+                                <div class="pg-step-row"><div class="pg-cell-strong">Completion Trend</div><div id="watchCompletionHint">No scan backlog yet</div></div>
                                 <div class="pg-step-row"><div class="pg-cell-strong">Last Processed File</div><div id="watchLastProcessedFile">No file processed yet</div></div>
                                 <div class="pg-step-row"><div class="pg-cell-strong">Last Document ID</div><div id="watchLastDocumentId">No document ID yet</div></div>
                                 <div class="pg-step-row"><div class="pg-cell-strong">Last Processed Time</div><div id="watchLastProcessedAt">No processing timestamp yet</div></div>
@@ -500,6 +510,17 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/privguard-workspace.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/privguard-workspace.js', v=asset_version) }}"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+

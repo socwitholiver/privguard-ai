@@ -5,9 +5,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from tkinter import Tk, filedialog
 
-from flask import Flask, jsonify, render_template, request, send_file, session, url_for
+from flask import Flask, jsonify, redirect, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
 
+from automation.demo_workflow import (
+    ensure_demo_watch_folder,
+    get_demo_target_count,
+    get_demo_watch_folder_path,
+    rebuild_demo_workspace,
+)
 from automation.folder_watch import (
     configure_watch_folder,
     disable_watch_folder,
@@ -16,18 +22,8 @@ from automation.folder_watch import (
     stop_watch_folder_runner,
 )
 from automation.lifecycle_worker import ensure_lifecycle_runner, lifecycle_state, stop_lifecycle_runner
-from classification import build_risk_summary
 from config_loader import load_system_config, save_system_config
 from lifecycle_manager import archive_root, build_lifecycle_policy, evaluate_lifecycle
-from detection import count_sensitive_items, detect_sensitive_data
-from extraction import read_document_text
-from protection import (
-    decrypt_text,
-    encrypt_text,
-    generate_encryption_key,
-    redact_text,
-    verify_redaction_quality,
-)
 from security.auth import authenticate_user, current_user, require_login, require_vault_unlock
 from security.vault import (
     change_master_password,
@@ -65,6 +61,8 @@ from storage.document_repo import (
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("PRIVGUARD_SECRET_KEY", "privguard-dev-secret-change-me")
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 ensure_vault_layout()
 init_db()
 
@@ -80,6 +78,15 @@ ENTITY_TOTAL_KEYS = (
 AVATAR_DIR = Path("static/uploads/avatars")
 ALLOWED_AVATAR_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
+def _dashboard_asset_version() -> int:
+    asset_paths = (
+        Path("static/css/privguard-cyber-ui.css"),
+        Path("static/js/privguard-workspace.js"),
+    )
+    existing = [int(path.stat().st_mtime) for path in asset_paths if path.exists()]
+    return max(existing) if existing else 0
+
+
 SUPPORTED_EXTENSIONS = {
     ".txt",
     ".md",
@@ -94,6 +101,60 @@ SUPPORTED_EXTENSIONS = {
     ".tiff",
     ".webp",
 }
+
+
+def _read_document_text(path: Path) -> str:
+    from extraction import read_document_text
+
+    return read_document_text(path)
+
+
+def _detect_sensitive_data(text: str) -> dict:
+    from detection import detect_sensitive_data
+
+    return detect_sensitive_data(text)
+
+
+def _count_sensitive_items(findings: dict) -> int:
+    from detection import count_sensitive_items
+
+    return count_sensitive_items(findings)
+
+
+def _build_risk_summary(findings: dict) -> dict:
+    from classification import build_risk_summary
+
+    return build_risk_summary(findings)
+
+
+def _decrypt_text(token: str, key: bytes) -> str:
+    from protection import decrypt_text
+
+    return decrypt_text(token, key)
+
+
+def _encrypt_text(text: str, key: bytes) -> str:
+    from protection import encrypt_text
+
+    return encrypt_text(text, key)
+
+
+def _generate_encryption_key() -> bytes:
+    from protection import generate_encryption_key
+
+    return generate_encryption_key()
+
+
+def _redact_text(text: str, findings: dict) -> str:
+    from protection import redact_text
+
+    return redact_text(text, findings)
+
+
+def _verify_redaction_quality(findings: dict, protected_text: str) -> dict:
+    from protection import verify_redaction_quality
+
+    return verify_redaction_quality(findings, protected_text)
 
 
 def _profile_payload(username: str) -> dict:
@@ -364,10 +425,10 @@ def _register_document_record(
     actor: str,
     source: str,
 ) -> tuple[dict, Path, str, dict, dict]:
-    extracted_text = read_document_text(original_path)
-    findings = detect_sensitive_data(extracted_text)
-    risk = build_risk_summary(findings)
-    total_items = count_sensitive_items(findings)
+    extracted_text = _read_document_text(original_path)
+    findings = _detect_sensitive_data(extracted_text)
+    risk = _build_risk_summary(findings)
+    total_items = _count_sensitive_items(findings)
     lifecycle = build_lifecycle_policy(original_filename, risk)
     document = create_document_record(
         document_id=document_id,
@@ -433,9 +494,9 @@ def _load_document_context(document_id: str) -> tuple[dict, Path, str, dict, dic
     original_path = Path(str(document["original_path"]))
     if not original_path.exists():
         raise FileNotFoundError(f"Original file for {document_id} is missing from the vault.")
-    extracted_text = read_document_text(original_path)
-    findings = document.get("findings") or detect_sensitive_data(extracted_text)
-    risk = build_risk_summary(findings)
+    extracted_text = _read_document_text(original_path)
+    findings = document.get("findings") or _detect_sensitive_data(extracted_text)
+    risk = _build_risk_summary(findings)
     return document, original_path, extracted_text, findings, risk
 
 
@@ -458,7 +519,7 @@ def _write_compliance_report(
     elif final_text is None:
         risk_after = risk
     else:
-        risk_after = build_risk_summary(detect_sensitive_data(final_text))
+        risk_after = _build_risk_summary(_detect_sensitive_data(final_text))
 
     payload = {
         "document_id": document["document_id"],
@@ -466,7 +527,7 @@ def _write_compliance_report(
         "input_file": document.get("original_filename"),
         "workflow_status": workflow_status,
         "policy": risk.get("policy", {}),
-        "sensitive_items_detected": count_sensitive_items(findings),
+        "sensitive_items_detected": _count_sensitive_items(findings),
         "findings": findings,
         "risk_before_protection": risk,
         "risk_after_protection": risk_after,
@@ -552,6 +613,11 @@ def _document_payload(document: dict) -> dict:
 
 def _workspace_payload() -> dict:
     documents = [_document_payload(document) for document in list_documents(limit=20)]
+    vault_metrics = vault_summary()
+    summary = summarize_scan_events(limit=50)
+    summary["documents_scanned"] = int(vault_metrics.get("documents_total", 0))
+    summary["protected_outputs"] = int(vault_metrics.get("protected_documents", 0))
+    summary["high_risk_alerts"] = int(vault_metrics.get("high_risk_documents", 0))
     lifecycle_summary = {
         "active": sum(1 for document in documents if document.get("lifecycle_status") == "Active"),
         "expiring": sum(1 for document in documents if document.get("lifecycle_status") == "Expiring Soon"),
@@ -560,14 +626,18 @@ def _workspace_payload() -> dict:
         "deleted": sum(1 for document in documents if document.get("lifecycle_status") == "Deleted"),
     }
     return {
-        "summary": summarize_scan_events(limit=50),
+        "summary": summary,
         "recent_files": documents,
         "activity": list_recent_audit_events(limit=12),
-        "watch_folder": get_watch_folder_state(),
-        "vault_summary": vault_summary(),
+        "watch_folder": _watch_folder_payload(),
+        "vault_summary": vault_metrics,
         "lifecycle_summary": lifecycle_summary,
         "lifecycle_engine": lifecycle_state(),
         "settings": _system_settings_payload(),
+        "demo": {
+            "watch_folder": _demo_watch_folder_path(),
+            "target_count": _demo_target_count(),
+        },
         "user": current_user(),
     }
 
@@ -587,7 +657,7 @@ def _run_policy_pipeline(
     outputs: dict[str, str] = {}
     actions_applied: list[str] = []
     completed_steps = [
-        "Sensitive data detected" if count_sensitive_items(findings) else "No sensitive data detected",
+        "Sensitive data detected" if _count_sensitive_items(findings) else "No sensitive data detected",
     ]
     response_download_url = f"/api/documents/{document['document_id']}/artifacts/original/download"
     response_download_label = document.get("original_filename", "original")
@@ -598,11 +668,11 @@ def _run_policy_pipeline(
     final_text = source_text
 
     if policy_mode in {"redact", "redact_encrypt"}:
-        redacted_text = redact_text(source_text, findings)
+        redacted_text = _redact_text(source_text, findings)
         redacted_name = _artifact_filename(document, "redacted", "txt")
         redacted_path = ensure_vault_layout()["redacted"] / redacted_name
         redacted_path.write_text(redacted_text, encoding="utf-8")
-        redaction_quality = verify_redaction_quality(findings, redacted_text)
+        redaction_quality = _verify_redaction_quality(findings, redacted_text)
         record_artifact(
             document["document_id"],
             "redacted",
@@ -625,7 +695,7 @@ def _run_policy_pipeline(
         completed_steps.append("Document allowed")
 
     if policy_mode == "redact_encrypt":
-        key = generate_encryption_key()
+        key = _generate_encryption_key()
         key_path = wrap_document_key(document["document_id"], key)
         record_artifact(
             document["document_id"],
@@ -634,7 +704,7 @@ def _run_policy_pipeline(
             key_path.name,
             {"wrapped_by": "vault", "algorithm": "Fernet"},
         )
-        encrypted_text = encrypt_text(source_text, key)
+        encrypted_text = _encrypt_text(source_text, key)
         encrypted_name = _artifact_filename(document, "encrypted", "txt")
         encrypted_path = ensure_vault_layout()["encrypted"] / encrypted_name
         encrypted_path.write_text(encrypted_text, encoding="utf-8")
@@ -724,14 +794,24 @@ def _process_watch_file(file_path: Path) -> dict | None:
     return payload
 
 
-def _ensure_watch_service() -> None:
-    if vault_is_unlocked() and get_watch_folder_state().get("enabled"):
-        ensure_watch_folder_running(_process_watch_file)
+def _ensure_background_vault_access() -> bool:
+    if vault_is_unlocked():
+        return True
+    if not vault_is_configured() or vault_uses_system_master_key():
+        try:
+            unlock_vault(get_default_master_key(), "automation-engine", key_mode="system")
+            return True
+        except ValueError:
+            return False
+    return False
 
+
+def _ensure_watch_service() -> None:
+    if get_watch_folder_state().get("enabled") and _ensure_background_vault_access():
+        ensure_watch_folder_running(_process_watch_file)
 
 def _lock_vault_session() -> None:
     session["vault_unlocked"] = False
-    lock_vault()
 
 
 def _select_folder_dialog() -> str:
@@ -743,6 +823,23 @@ def _select_folder_dialog() -> str:
     finally:
         root.destroy()
     return str(selected or "").strip()
+
+
+
+def _demo_target_count() -> int:
+    return int(get_demo_target_count())
+
+
+def _demo_watch_folder_path() -> str:
+    return str(get_demo_watch_folder_path())
+
+
+
+def _watch_folder_payload() -> dict:
+    state = get_watch_folder_state()
+    if not state.get("path"):
+        state["path"] = _demo_watch_folder_path()
+    return state
 
 
 def _validate_watch_folder(folder_path: str) -> Path:
@@ -767,16 +864,30 @@ def home():
 @app.route("/dashboard")
 @require_login
 def dashboard():
+    demo_watch_folder = _demo_watch_folder_path()
+    demo_file_count = _demo_target_count()
     if session.pop("allow_dashboard_once", False):
-        return render_template("dashboard.html", user=current_user())
+        return render_template(
+            "dashboard.html",
+            user=current_user(),
+            demo_watch_folder=demo_watch_folder,
+            demo_file_count=demo_file_count,
+            asset_version=_dashboard_asset_version(),
+        )
     _lock_vault_session()
-    return render_template("dashboard.html", user=current_user())
+    return render_template(
+        "dashboard.html",
+        user=current_user(),
+        demo_watch_folder=demo_watch_folder,
+        demo_file_count=demo_file_count,
+            asset_version=_dashboard_asset_version(),
+    )
 
 
 @app.route("/launch")
 @require_login
 def launch():
-    return render_template("launch.html", user=current_user())
+    return redirect(url_for("dashboard"))
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -837,6 +948,7 @@ def workspace_api():
     _ensure_watch_service()
     _ensure_lifecycle_service()
     return jsonify(_workspace_payload())
+
 @app.route("/api/profile", methods=["GET"])
 @require_login
 def profile_api():
@@ -962,24 +1074,34 @@ def watch_folder_picker_api():
 @app.route("/api/watch-folder", methods=["GET"])
 @require_login
 def watch_folder_status_api():
-    _ensure_watch_service()
-    return jsonify(get_watch_folder_state())
+    return jsonify(_watch_folder_payload())
 
 
 @app.route("/api/watch-folder", methods=["POST"])
 @require_login
 def watch_folder_enable_api():
     payload = request.get_json(silent=True) or request.form
-    resolved = _validate_watch_folder(str(payload.get("path", "")).strip())
-    state = configure_watch_folder(str(resolved), _actor_name())
-    ensure_watch_folder_running(_process_watch_file)
+    requested_path = str(payload.get("path", "")).strip()
+    if requested_path and Path(requested_path).expanduser().resolve() == get_demo_watch_folder_path().resolve():
+        ensure_demo_watch_folder(target_count=_demo_target_count())
+    resolved = _validate_watch_folder(requested_path)
+    previous_path = str(get_watch_folder_state().get("path") or "")
+    force_rescan = bool(payload.get("force_rescan", False))
+    if not _ensure_background_vault_access():
+        return jsonify({"error": "Unlock the vault once with the system master PIN to enable automatic folder protection."}), 423
+    state = configure_watch_folder(str(resolved), _actor_name(), reset_progress=force_rescan)
+    ensure_watch_folder_running(
+        _process_watch_file,
+        force_restart=force_rescan or previous_path != str(resolved),
+    )
     log_audit_event(
         event_type="watch_folder_enabled",
         actor=_actor_name(),
         source="web",
-        details={"path": state.get("path")},
+        details={"path": state.get("path"), "force_rescan": force_rescan},
     )
     return jsonify(state)
+
 
 
 @app.route("/api/watch-folder", methods=["DELETE"])
@@ -994,6 +1116,37 @@ def watch_folder_disable_api():
     )
     return jsonify(state)
 
+
+@app.route("/api/demo/rebuild", methods=["POST"])
+@require_login
+def demo_rebuild_api():
+    if not _ensure_background_vault_access():
+        return jsonify({"error": "Unlock the vault once with the system master PIN to rebuild the demo workflow."}), 423
+
+    stop_watch_folder_runner()
+    summary = rebuild_demo_workspace(target_count=_demo_target_count())
+    state = configure_watch_folder(summary["watch_folder"], _actor_name(), reset_progress=True)
+    ensure_watch_folder_running(_process_watch_file, force_restart=True)
+    log_audit_event(
+        event_type="demo_workflow_rebuilt",
+        actor=_actor_name(),
+        source="web",
+        details={
+            "watch_folder": summary["watch_folder"],
+            "target_count": summary["target_count"],
+            "seeded_file_count": summary["seeded_file_count"],
+            "removed_watch_files": summary["removed_watch_files"],
+            "reset_database_rows": summary["reset_database_rows"],
+            "removed_vault_files": summary["removed_vault_files"],
+        },
+    )
+    return jsonify(
+        {
+            "message": f"Rebuilt {summary['seeded_file_count']} synthetic demo files and restarted WATCH FOLDER.",
+            "demo": summary,
+            "watch_folder": state,
+        }
+    )
 
 
 @app.route("/api/documents/<document_id>/lifecycle/archive", methods=["POST"])
@@ -1043,14 +1196,14 @@ def open_document(document_id: str):
         if artifacts.get("encrypted"):
             encrypted_path = Path(str(artifacts["encrypted"]["file_path"]))
             token = encrypted_path.read_text(encoding="utf-8").strip()
-            plain_text = decrypt_text(token, unwrap_document_key(document_id))
+            plain_text = _decrypt_text(token, unwrap_document_key(document_id))
             opened_as = "Encrypted"
         elif artifacts.get("redacted"):
             redacted_path = Path(str(artifacts["redacted"]["file_path"]))
             plain_text = redacted_path.read_text(encoding="utf-8")
             opened_as = "Redacted"
         else:
-            plain_text = read_document_text(original_path)
+            plain_text = _read_document_text(original_path)
             opened_as = "Allowed"
 
         log_audit_event(
@@ -1074,12 +1227,45 @@ def open_document(document_id: str):
         return jsonify({"error": "Unable to open this document right now."}), 400
 
 
+
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 if __name__ == "__main__":
+    _ensure_lifecycle_service()
     app.run(
         host=os.environ.get("PRIVGUARD_HOST", "127.0.0.1"),
         port=int(os.environ.get("PORT", "5000")),
         debug=os.environ.get("PRIVGUARD_DEBUG", "0") == "1",
     )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,9 +1,0 @@
-﻿Payroll Report Batch 2
-Employee: Brian Otieno
-National ID: 34567890
-KRA PIN: B234567890C
-Phone: 0723456789
-Email: ops@equityexample.co.ke
-Salary Account: 2201345567890
-Monthly Net Pay: KES 48500
-Payroll Password Reset Token: PAY2-SECURE-2026

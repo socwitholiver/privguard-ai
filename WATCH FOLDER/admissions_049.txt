@@ -1,0 +1,10 @@
+Student Admission Packet 49
+Batch: PG-DEMO-0241
+Student Name: Amina Njeri
+Guardian Phone: 0712345678
+Guardian Email: amina.njeri@uhuru.co.ke
+National ID: 23456789
+KRA PIN: A123456789B
+Fee Account: 0102412233445571
+Medical Login Code: school-49-secure
+Amount Due: KES 137250
