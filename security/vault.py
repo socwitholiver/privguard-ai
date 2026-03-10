@@ -36,6 +36,7 @@ _RUNTIME: Dict[str, object] = {
     "unlocked_by": None,
     "unlocked_at": None,
 }
+DEFAULT_MASTER_KEY_PLACEHOLDER = "SET_IN_INSTANCE_LOCAL_CONFIG"
 
 
 def _utc_now() -> str:
@@ -43,7 +44,10 @@ def _utc_now() -> str:
 
 
 def get_default_master_key() -> str:
-    return str(load_system_config().get("vault", {}).get("default_master_key", "admin254"))
+    value = str(load_system_config().get("vault", {}).get("default_master_key", "")).strip()
+    if not value or value == DEFAULT_MASTER_KEY_PLACEHOLDER:
+        raise ValueError("System master PIN is not configured. Set it in instance/local_system_config.yaml.")
+    return value
 
 
 def get_vault_paths() -> Dict[str, Path]:
@@ -235,3 +239,4 @@ def vault_status() -> dict:
         "paths": {name: str(path) for name, path in paths.items()},
         "file_counts": file_counts,
     }
+

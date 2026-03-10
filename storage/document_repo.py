@@ -1,4 +1,4 @@
-"""Document metadata repository for the PrivGuard secure vault."""
+﻿"""Document metadata repository for the PrivGuard secure vault."""
 
 from __future__ import annotations
 
@@ -323,6 +323,9 @@ def vault_summary() -> dict:
                 SUM(CASE WHEN status IN ('PROTECTED', 'SECURED') THEN 1 ELSE 0 END),
                 SUM(CASE WHEN status = 'REVIEW_REQUIRED' THEN 1 ELSE 0 END),
                 SUM(CASE WHEN risk_level = 'High' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN lifecycle_status = 'active' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN lifecycle_status = 'expiring_soon' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN lifecycle_status = 'expired' THEN 1 ELSE 0 END),
                 SUM(CASE WHEN lifecycle_status = 'archived' THEN 1 ELSE 0 END),
                 SUM(CASE WHEN lifecycle_status = 'deleted' THEN 1 ELSE 0 END)
             FROM documents
@@ -333,13 +336,16 @@ def vault_summary() -> dict:
                 "SELECT artifact_type, COUNT(*) FROM document_artifacts GROUP BY artifact_type"
             ).fetchall()
         )
-    total, scanned_only, protected, review_required, high_risk, archived, deleted = row or (0, 0, 0, 0, 0, 0, 0)
+    total, scanned_only, protected, review_required, high_risk, active, expiring, expired, archived, deleted = row or (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     return {
         "documents_total": int(total or 0),
         "pending_protection": int(scanned_only or 0),
         "protected_documents": int(protected or 0),
         "review_required": int(review_required or 0),
         "high_risk_documents": int(high_risk or 0),
+        "active_documents": int(active or 0),
+        "expiring_documents": int(expiring or 0),
+        "expired_documents": int(expired or 0),
         "archived_documents": int(archived or 0),
         "deleted_documents": int(deleted or 0),
         "artifact_counts": {key: int(value) for key, value in artifact_counts.items()},

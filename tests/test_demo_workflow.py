@@ -1,4 +1,5 @@
-import sqlite3
+﻿import sqlite3
+from pathlib import Path
 
 import automation.demo_workflow as demo_workflow
 from detection import detect_sensitive_data
@@ -118,4 +119,64 @@ def test_rebuild_demo_workspace_resets_live_demo_assets(tmp_path):
         assert conn.execute("SELECT COUNT(*) FROM document_artifacts").fetchone()[0] == 0
 
 
+
+
+def test_clear_demo_workspace_removes_demo_assets_without_reseeding(tmp_path):
+    watch_folder = tmp_path / "WATCH FOLDER"
+    watch_folder.mkdir()
+    (watch_folder / "legacy.txt").write_text("legacy demo file", encoding="utf-8")
+
+    vault_root = tmp_path / "vault"
+    vault_paths = {
+        "root": vault_root,
+        "originals": vault_root / "Originals",
+        "redacted": vault_root / "Redacted",
+        "encrypted": vault_root / "Encrypted",
+        "reports": vault_root / "Reports",
+        "keys": vault_root / "Keys",
+        "logs": vault_root / "Logs",
+    }
+    for key, path in vault_paths.items():
+        path.mkdir(parents=True, exist_ok=True)
+        if key != "root":
+            (path / f"{key}.txt").write_text("stale artifact", encoding="utf-8")
+
+    audit_archive_root = tmp_path / "audit activity"
+    audit_archive_root.mkdir()
+    (audit_archive_root / "March.txt").write_text("old audit archive", encoding="utf-8")
+
+    watch_state_path = tmp_path / "instance" / "watch_folder_state.json"
+    watch_state_path.parent.mkdir(parents=True, exist_ok=True)
+    watch_state_path.write_text("{\"enabled\": true}", encoding="utf-8")
+
+    db_path = tmp_path / "instance" / "privguard_audit.db"
+    _create_demo_db(db_path)
+
+    summary = demo_workflow.clear_demo_workspace(
+        watch_folder=watch_folder,
+        vault_paths=vault_paths,
+        db_path=db_path,
+        watch_state_path=watch_state_path,
+        audit_archive_root=audit_archive_root,
+    )
+
+    assert summary["seeded_file_count"] == 0
+    assert summary["target_count"] == 0
+    assert summary["removed_watch_files"] == 1
+    assert summary["watch_state_reset"] is True
+    assert len(list(watch_folder.iterdir())) == 0
+    assert not watch_state_path.exists()
+
+    for key in ("originals", "redacted", "encrypted", "reports", "keys", "logs"):
+        assert summary["removed_vault_files"][key] == 1
+        assert list(vault_paths[key].iterdir()) == []
+
+    assert summary["removed_audit_archive_entries"] == 1
+    assert list(audit_archive_root.iterdir()) == []
+    assert summary["reset_database_rows"] == {
+        "audit_events": 1,
+        "scan_events": 1,
+        "documents": 1,
+        "document_artifacts": 1,
+    }
 

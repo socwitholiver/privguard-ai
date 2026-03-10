@@ -1,4 +1,4 @@
-version: 1.0.0
+﻿version: 1.0.0
 audit:
   database_path: instance/privguard_audit.db
   enabled: true
@@ -6,7 +6,7 @@ audit:
 vault:
   root_dir: vault
   state_path: instance/vault_state.json
-  default_master_key: admin254
+  default_master_key: SET_IN_INSTANCE_LOCAL_CONFIG
   directories:
     originals: Originals
     redacted: Redacted

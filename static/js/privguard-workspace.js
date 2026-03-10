@@ -22,7 +22,9 @@ const icons = {
 };
 
 let workspaceState = { user: null, pendingScreen: null, pendingOpenUrl: null };
+let dashboardRefreshTimer = null;
 let liveWatchState = { lastProcessedAt: null, lastDocumentId: null, processedCount: 0, audioReady: false, audioContext: null };
+let themePreference = null;
 
 function escapeHtml(value) {
     return String(value || "")
@@ -52,6 +54,46 @@ function formatFindingType(type) {
 
 function markAudioReady() {
     liveWatchState.audioReady = true;
+    if ("Notification" in window && Notification.permission === "default") Notification.requestPermission().catch(() => {});
+}
+
+function showScanCompleteNotification(filename = "") {
+    const message = filename ? `Scan complete: ${filename}` : "Scan complete";
+    let toast = document.getElementById("scanCompleteToast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "scanCompleteToast";
+        toast.style.position = "fixed";
+        toast.style.right = "24px";
+        toast.style.bottom = "24px";
+        toast.style.zIndex = "9999";
+        toast.style.padding = "14px 18px";
+        toast.style.borderRadius = "16px";
+        toast.style.border = "1px solid rgba(255,255,255,0.12)";
+        toast.style.background = "rgba(8, 18, 16, 0.94)";
+        toast.style.color = "#f3f7f5";
+        toast.style.boxShadow = "0 20px 60px rgba(0,0,0,0.35)";
+        toast.style.fontWeight = "600";
+        toast.style.letterSpacing = "0.01em";
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(12px)";
+        toast.style.transition = "opacity 160ms ease, transform 160ms ease";
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = "1";
+    toast.style.transform = "translateY(0)";
+    if (toast.dismissTimer) window.clearTimeout(toast.dismissTimer);
+    toast.dismissTimer = window.setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(12px)";
+    }, 2600);
+    if ("Notification" in window && Notification.permission === "granted") {
+        try {
+            new Notification("Scan complete", { body: filename || "Protected file is ready." });
+        } catch (_) {
+        }
+    }
 }
 
 function playScanCompleteTone() {
@@ -114,8 +156,15 @@ function getInitials(value) {
 async function api(url, options = {}) {
     const response = await fetch(url, options);
     if (response.status === 401) {
-        window.location.href = "/login";
-        return null;
+        const data = await response.json().catch(() => ({}));
+        const isVaultUnlock = String(url || "").startsWith("/api/vault/unlock");
+        if (!isVaultUnlock) {
+            window.location.href = "/login";
+            return null;
+        }
+        const error = new Error(data.error || "Authentication failed");
+        error.status = 401;
+        throw error;
     }
     if (response.status === 423) {
         const data = await response.json().catch(() => ({}));
@@ -198,6 +247,18 @@ function closeVaultUnlockModal() {
     modal.setAttribute("aria-hidden", "true");
 }
 
+function scheduleWorkspaceRefresh(delayMs = 0) {
+    if (dashboardRefreshTimer) window.clearTimeout(dashboardRefreshTimer);
+    dashboardRefreshTimer = window.setTimeout(async () => {
+        dashboardRefreshTimer = null;
+        try {
+            await loadWorkspace();
+        } catch (_) {
+        }
+    }, delayMs);
+}
+
+
 async function unlockVaultWithPin() {
     const input = document.getElementById("vaultPinInput");
     const error = document.getElementById("vaultUnlockError");
@@ -218,17 +279,17 @@ async function unlockVaultWithPin() {
         });
         if (!data) return;
         if (data.user) renderUser(data.user);
+        const targetScreen = workspaceState.pendingScreen || "vault";
+        const openUrl = workspaceState.pendingOpenUrl;
+        workspaceState.pendingScreen = null;
+        workspaceState.pendingOpenUrl = null;
         closeVaultUnlockModal();
-        await loadWorkspace();
-        if (workspaceState.pendingOpenUrl) {
-            const url = workspaceState.pendingOpenUrl;
-            workspaceState.pendingOpenUrl = null;
-            setActiveScreen("vault");
-            await openDocument(url);
+        setActiveScreen(targetScreen);
+        scheduleWorkspaceRefresh();
+        if (openUrl) {
+            await openDocument(openUrl);
             return;
         }
-        setActiveScreen(workspaceState.pendingScreen || "vault");
-        workspaceState.pendingScreen = null;
     } catch (err) {
         if (error) {
             error.textContent = err.message;
@@ -261,7 +322,7 @@ function renderUser(user) {
     const displayName = user.display_name || user.username || "Local Operator";
     const username = user.username || "operator";
     const avatarUrl = user.avatar_url || "";
-    const theme = user.theme || document.body.dataset.theme || "dark";
+    const theme = themePreference || user.theme || document.body.dataset.theme || "dark";
 
     const topUserDisplayName = document.getElementById("topUserDisplayName");
     const topUserSubtext = document.getElementById("topUserSubtext");
@@ -339,11 +400,25 @@ function renderSystemSettings(settings, lifecycleEngine) {
     }
 }
 
-function renderVaultLifecycleSummary(summary) {
+function renderVaultLifecycleSummary(summary, vaultSummary = {}, watchState = {}) {
     const lifecycle = summary || {};
-    document.getElementById("vaultActiveCount").textContent = Number(lifecycle.active || 0);
-    document.getElementById("vaultExpiringCount").textContent = Number(lifecycle.expiring || 0) + Number(lifecycle.expired || 0);
-    document.getElementById("vaultArchivedCount").textContent = Number(lifecycle.archived || 0) + Number(lifecycle.deleted || 0);
+    const vault = vaultSummary || {};
+    const watch = watchState || {};
+    const useLiveActiveCount = !!watch.enabled && !!watch.running;
+    const liveActiveCount = Number(watch.processed_count || 0);
+    document.getElementById("vaultActiveCount").textContent = Number(
+        useLiveActiveCount
+            ? liveActiveCount
+            : (vault.active_documents != null ? vault.active_documents : (lifecycle.active || 0))
+    );
+    document.getElementById("vaultExpiringCount").textContent = Number(
+        (vault.expiring_documents != null ? vault.expiring_documents : (lifecycle.expiring || 0))
+        + (vault.expired_documents != null ? vault.expired_documents : (lifecycle.expired || 0))
+    );
+    document.getElementById("vaultArchivedCount").textContent = Number(
+        (vault.archived_documents != null ? vault.archived_documents : (lifecycle.archived || 0))
+        + (vault.deleted_documents != null ? vault.deleted_documents : (lifecycle.deleted || 0))
+    );
 }
 
 function renderDashboardTable(files) {
@@ -482,7 +557,11 @@ function renderWorkspace(workspace) {
     if (!workspace) return;
     renderSummary(workspace.summary || {}, workspace.recent_files || []);
     renderDashboardTable(workspace.recent_files || []);
-    renderVaultLifecycleSummary(workspace.lifecycle_summary || {});
+    renderVaultLifecycleSummary(
+        workspace.lifecycle_summary || {},
+        workspace.vault_summary || {},
+        workspace.watch_folder || {},
+    );
     renderVaultTable(workspace.recent_files || []);
     renderActivityTable(workspace.activity || []);
     renderWatchFolder(workspace.watch_folder || {});
@@ -584,6 +663,7 @@ async function persistProfile(payload, statusMessage) {
         body: JSON.stringify(payload),
     });
     if (!data) return null;
+    if (data.theme) themePreference = data.theme;
     renderUser(data);
     document.getElementById("profileStatus").textContent = statusMessage;
     return data;
@@ -623,6 +703,7 @@ async function uploadAvatar() {
 async function toggleTheme() {
     const previousTheme = document.body.dataset.theme === "light" ? "light" : "dark";
     const nextTheme = previousTheme === "light" ? "dark" : "light";
+    themePreference = nextTheme;
     applyTheme(nextTheme);
 
     try {
@@ -634,6 +715,7 @@ async function toggleTheme() {
             nextTheme === "light" ? "Light mode enabled." : "Dark mode enabled.",
         );
     } catch (error) {
+        themePreference = previousTheme;
         applyTheme(previousTheme);
         document.getElementById("profileStatus").textContent = error.message;
     }
@@ -780,11 +862,74 @@ async function loadWatchFolderStatus() {
         if (completedScanChanged) {
             syncLiveWatchState(state);
             playScanCompleteTone();
+            showScanCompleteNotification(state && state.last_file ? state.last_file : "");
             await loadWorkspace();
         } else {
             syncLiveWatchState(state);
         }
     } catch (_) {
+    }
+}
+
+function renderZeroWorkspace() {
+    renderWorkspace({
+        summary: {
+            documents_scanned: 0,
+            protected_outputs: 0,
+            high_risk_alerts: 0,
+            average_risk_score: 0,
+            entity_totals: {},
+            risk_distribution: { High: 0, Medium: 0, Low: 0 },
+            trend_scores: [],
+        },
+        recent_files: [],
+        activity: [],
+        watch_folder: {
+            enabled: false,
+            path: document.body.dataset.demoWatchFolder || "",
+            running: false,
+            mode: "idle",
+            supported_total: 0,
+            processed_count: 0,
+            pending_count: 0,
+            progress_percent: 0,
+            estimated_completion: "No scan backlog yet",
+            last_scan_at: null,
+            last_processed_at: null,
+            last_file: null,
+            last_document_id: null,
+            current_file: null,
+        },
+        vault_summary: {
+            documents_total: 0,
+            protected_documents: 0,
+            high_risk_documents: 0,
+            pending_protection: 0,
+            review_required: 0,
+            archived_documents: 0,
+            deleted_documents: 0,
+            artifact_counts: {},
+        },
+        lifecycle_summary: { active: 0, expiring: 0, expired: 0, archived: 0, deleted: 0 },
+        lifecycle_engine: {},
+        settings: {},
+        user: workspaceState.user,
+    });
+    syncLiveWatchState({ processed_count: 0, last_processed_at: null, last_document_id: null });
+}
+
+async function terminateDemoWorkflow() {
+    const statusNode = document.getElementById("watchFolderStatus");
+    if (statusNode) statusNode.textContent = "Terminating background workers and clearing dashboard activity...";
+    try {
+        const data = await api("/api/demo/reset", { method: "POST" });
+        if (!data) return;
+        renderZeroWorkspace();
+        if (data.workspace) renderWorkspace(data.workspace);
+        if (statusNode) statusNode.textContent = data.message || "Demo workflow terminated.";
+        setActiveScreen("dashboard");
+    } catch (error) {
+        if (statusNode) statusNode.textContent = error.message;
     }
 }
 
@@ -842,8 +987,13 @@ window.addEventListener("DOMContentLoaded", () => {
     const openBtn = document.getElementById("openWatchFolderBtn");
     const demoBtn = document.getElementById("useDemoWatchFolderBtn");
     const rebuildBtn = document.getElementById("rebuildDemoWorkflowBtn");
+    const terminateBtn = document.getElementById("terminateDemoWorkflowBtn");
     if (openBtn) openBtn.addEventListener("click", useDemoWatchFolder);
     if (demoBtn) demoBtn.addEventListener("click", useDemoWatchFolder);
     if (rebuildBtn) rebuildBtn.addEventListener("click", rebuildDemoWorkflow);
+    if (terminateBtn) terminateBtn.addEventListener("click", terminateDemoWorkflow);
     window.setInterval(loadWatchFolderStatus, 1000);
 });
+
+
+

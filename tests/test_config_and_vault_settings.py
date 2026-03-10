@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 import config_loader
 import security.vault as vault
@@ -68,3 +68,58 @@ def test_change_master_password_rewraps_existing_keys(tmp_path, monkeypatch):
     vault.lock_vault()
     vault.unlock_vault('newpin254', 'tester', key_mode='system')
     assert vault.unwrap_document_key('PG-2026-00001') == key
+
+def test_load_system_config_merges_local_override(tmp_path, monkeypatch):
+    config_path = tmp_path / 'system_config.yaml'
+    local_config_path = tmp_path / 'instance' / 'local_system_config.yaml'
+    local_config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text('''vault:
+  default_master_key: SET_IN_INSTANCE_LOCAL_CONFIG
+lifecycle:
+  retention_defaults:
+    high: 90
+    medium: 180
+    low: 365
+''', encoding='utf-8')
+    local_config_path.write_text('''vault:
+  default_master_key: local-secret
+''', encoding='utf-8')
+    monkeypatch.setattr(config_loader, 'SYSTEM_CONFIG_PATH', config_path)
+    monkeypatch.setattr(config_loader, 'LOCAL_SYSTEM_CONFIG_PATH', local_config_path)
+    config_loader.load_system_config.cache_clear()
+
+    config = config_loader.load_system_config()
+
+    assert config['vault']['default_master_key'] == 'local-secret'
+    assert config['lifecycle']['retention_defaults']['high'] == 90
+
+def test_save_system_config_does_not_persist_local_only_override(tmp_path, monkeypatch):
+    config_path = tmp_path / 'system_config.yaml'
+    local_config_path = tmp_path / 'instance' / 'local_system_config.yaml'
+    local_config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text('''vault:
+  default_master_key: SET_IN_INSTANCE_LOCAL_CONFIG
+lifecycle:
+  retention_defaults:
+    high: 90
+    medium: 180
+    low: 365
+''', encoding='utf-8')
+    local_config_path.write_text('''vault:
+  default_master_key: local-secret
+''', encoding='utf-8')
+    monkeypatch.setattr(config_loader, 'SYSTEM_CONFIG_PATH', config_path)
+    monkeypatch.setattr(config_loader, 'LOCAL_SYSTEM_CONFIG_PATH', local_config_path)
+    config_loader.load_system_config.cache_clear()
+
+    config = config_loader.load_system_config()
+    config['lifecycle']['retention_defaults']['high'] = 45
+    config_loader.save_system_config(config)
+    config_loader.load_system_config.cache_clear()
+
+    tracked_config = config_path.read_text(encoding='utf-8')
+    merged_config = config_loader.load_system_config()
+
+    assert 'local-secret' not in tracked_config
+    assert merged_config['vault']['default_master_key'] == 'local-secret'
+    assert merged_config['lifecycle']['retention_defaults']['high'] == 45

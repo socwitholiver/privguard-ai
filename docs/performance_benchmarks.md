@@ -1,8 +1,17 @@
-# Performance Benchmarks (Round 1)
+﻿# Performance Benchmarks
 
-Use this page to produce and present objective reliability numbers for judging.
+This benchmark pack exists to answer the judging questions around reliability, speed, and evidence of impact.
 
-## 1) Run benchmark script
+## What to Measure
+
+Use the benchmark runner to collect evidence for four claims:
+
+- `Latency`: how quickly a single file is processed end to end.
+- `Protection quality`: whether sensitive values are fully removed from the shareable output.
+- `Throughput`: how many files or characters can be processed per minute on local hardware.
+- `Operational gain`: how much manual review time is removed from the workflow.
+
+## How to Run
 
 From repository root:
 
@@ -13,49 +22,65 @@ python scripts/benchmark_round1.py
 Optional custom files:
 
 ```bash
-python scripts/benchmark_round1.py --files "demo_docs/school_admission_sample.txt" "demo_docs/sme_payroll_sample.txt" --output "reports/round1_benchmarks.json"
+python scripts/benchmark_round1.py --files "WATCH FOLDER/sample1.txt" "WATCH FOLDER/sample2.txt" --output "reports/round1_benchmarks.json"
 ```
 
-## 2) What is measured
+## Generated Artifact
 
-- Extraction time (text/image/pdf)
-- Detection time
-- Classification time
-- Redaction time
-- Redaction verification time
-- End-to-end total latency
-- Throughput estimate (characters/second)
-- Risk and redaction quality outputs
+- JSON report: `reports/round1_benchmarks.json`
 
-## 3) Evidence artifact for judges
+This should be attached to the submission deck as primary technical evidence.
 
-Attach generated file:
+## Judge-Facing KPI Table
 
-- `reports/round1_benchmarks.json`
+Fill and present this table after running the benchmark:
 
-And include a short table in your submission/deck.
+| KPI | What it shows | Current evidence source |
+|---|---|---|
+| End-to-end latency per file | Whether the workflow is practical for operators | `timings_ms.total` |
+| Extraction latency | OCR and parsing burden by format | `timings_ms.extract` |
+| Detection latency | Speed of the local policy engine | `timings_ms.detect` |
+| Redaction quality status | Whether the protected copy leaked sensitive text | `metrics.redaction_quality_status` |
+| Leak count | Residual sensitive values after redaction | `metrics.leak_count` |
+| Risk level and score | Whether the file was graded consistently | `metrics.risk_level`, `metrics.risk_score` |
+| Characters per second | Local throughput estimate | `metrics.characters_per_second` |
 
-## 4) Summary table template
+## Baseline Story for Judges
 
-| File | File Type | Total ms | Extract ms | Detect ms | Risk Level | Quality Status | Leak Count |
-|---|---:|---:|---:|---:|---|---|---:|
-| school_admission_sample.txt | txt | _fill_ | _fill_ | _fill_ | _fill_ | _fill_ | _fill_ |
-| sme_payroll_sample.txt | txt | _fill_ | _fill_ | _fill_ | _fill_ | _fill_ | _fill_ |
-| sample_real_photo.jpg | jpg | _fill_ | _fill_ | _fill_ | _fill_ | _fill_ | _fill_ |
-| sample_real_text.pdf | pdf-text | _fill_ | _fill_ | _fill_ | _fill_ | _fill_ | _fill_ |
-| sample_real_scanned.pdf | pdf-ocr | _fill_ | _fill_ | _fill_ | _fill_ | _fill_ | _fill_ |
+Use a realistic baseline: manual records review by an officer.
 
-## 5) Minimum target guidance (MVP)
+Recommended comparison points:
 
-- End-to-end processing should feel interactive for single documents.
-- OCR-based files (jpg/scanned-pdf) will naturally be slower than text pdf/txt.
-- Detection/classification steps should remain fast relative to extraction.
+- Manual review requires a human to open, inspect, and decide how to handle each file.
+- PrivGuard performs the first-pass triage, protection action, and audit logging automatically.
+- The benchmark demonstrates machine-time latency; the value claim is reduced handling time and fewer operator mistakes.
 
-## 6) Reporting note
+## Suggested Claims
 
-When presenting, always state:
+Only make claims you can support with the generated report.
 
-- local hardware used,
-- OCR installed locally (Tesseract),
-- offline mode (no cloud inference),
-- that all sample data shown is synthetic or consented demo data.
+Safe claim examples:
+
+- `PrivGuard processes single documents locally in interactive time on commodity hardware.`
+- `Detection and classification are fast relative to extraction, which is expected for OCR-heavy files.`
+- `The system verifies protected output quality and reports residual leaks explicitly.`
+
+Avoid unsupported claims such as perfect accuracy or full production readiness.
+
+## Hardware Disclosure
+
+Always report:
+
+- machine specs,
+- whether Tesseract OCR was installed locally,
+- whether the file was text-native or OCR-derived,
+- that all demo data is synthetic or consented.
+
+## Next-Step Evidence to Add
+
+For stronger Stage 2 scoring, add:
+
+- false-positive and false-negative counts on a labeled sample set,
+- files processed per minute on the 500-file demo batch,
+- comparison against current manual handling time,
+- pilot feedback from one target workflow owner.

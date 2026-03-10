@@ -13,6 +13,7 @@ from automation.demo_workflow import (
     get_demo_target_count,
     get_demo_watch_folder_path,
     rebuild_demo_workspace,
+    clear_demo_workspace,
 )
 from automation.folder_watch import (
     configure_watch_folder,
@@ -22,7 +23,7 @@ from automation.folder_watch import (
     stop_watch_folder_runner,
 )
 from automation.lifecycle_worker import ensure_lifecycle_runner, lifecycle_state, stop_lifecycle_runner
-from config_loader import load_system_config, save_system_config
+from config_loader import load_system_config, save_local_system_config, save_system_config
 from lifecycle_manager import archive_root, build_lifecycle_policy, evaluate_lifecycle
 from security.auth import authenticate_user, current_user, require_login, require_vault_unlock
 from security.vault import (
@@ -619,11 +620,11 @@ def _workspace_payload() -> dict:
     summary["protected_outputs"] = int(vault_metrics.get("protected_documents", 0))
     summary["high_risk_alerts"] = int(vault_metrics.get("high_risk_documents", 0))
     lifecycle_summary = {
-        "active": sum(1 for document in documents if document.get("lifecycle_status") == "Active"),
-        "expiring": sum(1 for document in documents if document.get("lifecycle_status") == "Expiring Soon"),
-        "expired": sum(1 for document in documents if document.get("lifecycle_status") == "Expired"),
-        "archived": sum(1 for document in documents if document.get("lifecycle_status") == "Archived"),
-        "deleted": sum(1 for document in documents if document.get("lifecycle_status") == "Deleted"),
+        "active": int(vault_metrics.get("active_documents", 0)),
+        "expiring": int(vault_metrics.get("expiring_documents", 0)),
+        "expired": int(vault_metrics.get("expired_documents", 0)),
+        "archived": int(vault_metrics.get("archived_documents", 0)),
+        "deleted": int(vault_metrics.get("deleted_documents", 0)),
     }
     return {
         "summary": summary,
@@ -1049,9 +1050,7 @@ def change_vault_pin_api():
         return jsonify({"error": str(exc)}), 400
 
     if vault_uses_system_master_key():
-        config = load_system_config()
-        config.setdefault("vault", {})["default_master_key"] = new_pin
-        save_system_config(config)
+        save_local_system_config({"vault": {"default_master_key": new_pin}})
     log_audit_event(
         event_type="vault_pin_changed",
         actor=_actor_name(),
@@ -1149,6 +1148,33 @@ def demo_rebuild_api():
     )
 
 
+
+@app.route("/api/demo/reset", methods=["POST"])
+@require_login
+def demo_reset_api():
+    stop_watch_folder_runner()
+    stop_lifecycle_runner()
+    summary = clear_demo_workspace()
+    state = disable_watch_folder(_actor_name())
+    log_audit_event(
+        event_type="demo_workflow_reset",
+        actor=_actor_name(),
+        source="web",
+        details={
+            "watch_folder": summary["watch_folder"],
+            "removed_watch_files": summary["removed_watch_files"],
+            "reset_database_rows": summary["reset_database_rows"],
+            "removed_vault_files": summary["removed_vault_files"],
+        },
+    )
+    return jsonify(
+        {
+            "message": "Terminated the demo pipeline and cleared all dashboard, watch-folder, and vault activity.",
+            "demo": summary,
+            "watch_folder": state,
+            "workspace": _workspace_payload(),
+        }
+    )
 @app.route("/api/documents/<document_id>/lifecycle/archive", methods=["POST"])
 @require_login
 @require_vault_unlock
@@ -1241,6 +1267,9 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", "5000")),
         debug=os.environ.get("PRIVGUARD_DEBUG", "0") == "1",
     )
+
+
+
 
 
 

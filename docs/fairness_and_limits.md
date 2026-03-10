@@ -1,43 +1,82 @@
-# Fairness, Safety, and Limits (Round 1)
+﻿# Fairness, Safety, and Limits
 
-This document states current safeguards and known limits in the MVP.
+This document is the governance note for the current MVP.
 
-## 1) Fairness posture (current)
+## What the MVP Does Today
 
-- The MVP relies primarily on pattern/rule detection and OCR, not a black-box classifier for eligibility or ranking decisions.
-- This reduces some model-opinion bias risk, but does **not** remove all fairness risk.
+PrivGuard is not a predictive policing, eligibility, ranking, or targeting system. It is a records-protection workflow that detects sensitive entities, applies a local protection policy, and preserves audit traces.
 
-## 2) Potential bias or failure points
+That design choice reduces some fairness risk because the system is not deciding who should be punished, prioritized, or excluded. It is deciding how a document should be protected.
 
-- OCR quality can vary by scan quality, lighting, and document language/layout.
-- Pattern detection may miss uncommon formats or over-flag unusual text.
-- Documents with non-standard formatting may have lower extraction quality.
+## Main Failure Modes
 
-## 3) Current safeguards
+Current risks remain real:
 
-- Human-readable findings are shown before action.
-- Risk output is transparent (score + level + insights).
-- Redaction quality verification checks for leaks after protection.
-- Audit logs preserve traceability for operational review.
+- OCR quality can degrade on low-quality scans, photos, handwritten marks, or unusual layouts.
+- Regex and rule-based detection can miss uncommon formats.
+- Non-standard document language or formatting can cause both over-flagging and under-detection.
+- Operators may over-trust a clean result even when extraction quality is weak.
 
-## 4) Responsible-use guidance
+## Current Safeguards
 
-- Do not use MVP output as the sole source of truth for punitive decisions.
-- Keep a human-in-the-loop for high-risk or ambiguous documents.
-- Use verification output (PASS/FAIL, coverage, leaks) before sharing redacted files.
+The MVP already includes the following controls:
 
-## 5) Near-term fairness improvements (post Round 1)
+- transparent findings and risk summaries rather than opaque decisions,
+- explicit redaction-quality verification,
+- audit logs for operational review,
+- local storage and encryption for sensitive artifacts,
+- human-readable lifecycle status and vault actions,
+- a workflow that supports human review for high-risk or expired records.
 
-- Add format-variance test cases for Kenyan contact/ID representations.
-- Add OCR confidence thresholds and warnings for low-confidence extractions.
-- Add language/format regression tests to reduce inconsistent outcomes.
-- Track false positives/false negatives during pilot and tune detection rules.
+## Responsible-Use Guidance
 
-## 6) Submission note for judges
+Use these statements in the pitch and documentation:
 
-In Round 1, clearly acknowledge:
+- `PrivGuard is a decision-support and privacy-protection tool, not a final adjudicator.`
+- `High-risk or ambiguous cases should remain subject to human review.`
+- `A protected output should not be shared unless verification status is acceptable.`
+- `Poor OCR conditions should trigger operator caution and, where necessary, re-scanning.`
 
-- what the MVP does reliably now,
-- where fairness/accuracy can fail,
-- what controls are already in place,
-- and your concrete mitigation roadmap.
+## Misuse Considerations
+
+Judges will expect evidence that misuse has been considered.
+
+Current concerns:
+
+- an operator may rely on a low-quality extraction,
+- a malicious user may attempt to bypass the watch-folder workflow,
+- demo credentials or demo secrets could be mistaken for production practice,
+- a document may be wrongly considered safe due to a missed pattern.
+
+Current mitigations:
+
+- local-only operation limits unnecessary external data exposure,
+- vault actions are gated by authentication and vault state,
+- the repo now separates tracked config from local secret overrides,
+- audit logs preserve a reconstruction trail for supervisors and reviewers.
+
+## Fairness Position
+
+Because the MVP is rule- and policy-driven, the main fairness challenge is coverage consistency rather than model bias in social ranking decisions.
+
+The immediate fairness work should focus on:
+
+- wider format coverage for Kenyan IDs, phones, and document layouts,
+- multilingual and layout-variant regression tests,
+- OCR confidence warnings,
+- documented operator guidance for low-confidence results.
+
+## What We Will Add Next
+
+To improve Stage 2 readiness:
+
+- label a representative evaluation set and track false positives and false negatives,
+- add OCR confidence thresholds and warning banners,
+- record extraction-confidence metadata in audit trails,
+- expand tests for edge cases across document types and Kenyan formatting variants.
+
+## Judge Summary
+
+A fair description of the current state is:
+
+`PrivGuard already implements privacy, auditability, and human-review safeguards appropriate for an MVP, but it should still be presented as an operator-assist records-protection tool rather than an autonomous authority.`

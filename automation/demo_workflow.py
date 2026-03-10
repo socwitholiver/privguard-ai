@@ -303,6 +303,45 @@ def rebuild_demo_workspace(
         "watch_state_reset": watch_state_reset,
     }
 
+def clear_demo_workspace(
+    *,
+    watch_folder: Path | None = None,
+    vault_paths: dict[str, Path] | None = None,
+    db_path: Path | None = None,
+    watch_state_path: Path | None = None,
+    audit_archive_root: Path | None = None,
+) -> dict:
+    folder = (watch_folder or get_demo_watch_folder_path()).resolve()
+    paths = vault_paths or ensure_vault_layout()
+    runtime_db_path = (db_path or DEFAULT_DB_PATH).resolve()
+    runtime_watch_state_path = (watch_state_path or DEFAULT_WATCH_STATE_PATH).resolve()
+    runtime_audit_archive_root = (audit_archive_root or DEFAULT_AUDIT_ARCHIVE_ROOT).resolve()
 
+    removed_watch_files = _clear_directory(folder)
+    folder.mkdir(parents=True, exist_ok=True)
 
+    removed_vault_files: dict[str, int] = {}
+    for key, path in paths.items():
+        if key == "root":
+            continue
+        path.mkdir(parents=True, exist_ok=True)
+        removed_vault_files[key] = _clear_directory(path)
 
+    removed_archive_entries = _clear_directory(runtime_audit_archive_root)
+    reset_tables = _reset_database_tables(runtime_db_path)
+
+    watch_state_reset = False
+    if runtime_watch_state_path.exists():
+        runtime_watch_state_path.unlink()
+        watch_state_reset = True
+
+    return {
+        "watch_folder": str(folder),
+        "target_count": 0,
+        "seeded_file_count": 0,
+        "removed_watch_files": removed_watch_files,
+        "removed_vault_files": removed_vault_files,
+        "removed_audit_archive_entries": removed_archive_entries,
+        "reset_database_rows": reset_tables,
+        "watch_state_reset": watch_state_reset,
+    }
