@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./Logo/PRIVGUARD%20AI%20OFFICIAL%20LOGO.png" alt="PrivGuard AI Logo" width="720">
+  <img src="https://raw.githubusercontent.com/socwitholiver/privguard-ai/codex/main-merge-20260312/Logo/PRIVGUARD%20AI%20OFFICIAL%20LOGO.png" alt="PrivGuard AI Logo" width="720">
 </p>
 
 # PrivGuard AI
