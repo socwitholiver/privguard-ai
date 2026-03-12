@@ -79,6 +79,7 @@ def _save_state(payload: dict) -> None:
 
 
 def _derive_master_key(password: str, salt_b64: str) -> bytes:
+    # Derive a stable per-vault Fernet key from the user PIN plus the stored random salt.
     salt = base64.urlsafe_b64decode(salt_b64.encode("utf-8"))
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),

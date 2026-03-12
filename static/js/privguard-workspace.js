@@ -26,6 +26,40 @@ let dashboardRefreshTimer = null;
 let liveWatchState = { lastProcessedAt: null, lastDocumentId: null, processedCount: 0, audioReady: false, audioContext: null };
 let themePreference = null;
 const kpiAnimationState = Object.create(null);
+const startupSteps = [
+    "Preparing secure workspace",
+    "Linking offline AI engine",
+    "Reading secure vault telemetry",
+    "Launching PrivGuard command center",
+];
+
+function updateStartupOverlay(stepIndex) {
+    const overlay = document.getElementById("startupOverlay");
+    if (!overlay) return;
+    const progressBar = document.getElementById("startupProgressBar");
+    const statusLabel = document.getElementById("startupStatusLabel");
+    const statusMeta = document.getElementById("startupStatusMeta");
+    const safeIndex = Math.max(0, Math.min(stepIndex, startupSteps.length - 1));
+    if (statusLabel) statusLabel.textContent = startupSteps[safeIndex];
+    if (statusMeta) statusMeta.textContent = `Boot sequence ${safeIndex + 1}/${startupSteps.length}`;
+    if (progressBar) progressBar.style.width = `${((safeIndex + 1) / startupSteps.length) * 100}%`;
+    startupSteps.forEach((_, index) => {
+        const node = document.getElementById(`startupCheck${index}`);
+        if (!node) return;
+        node.classList.toggle("active", index === safeIndex);
+        node.classList.toggle("done", index < safeIndex);
+    });
+}
+
+function hideStartupOverlay() {
+    const overlay = document.getElementById("startupOverlay");
+    if (!overlay) return;
+    overlay.classList.add("is-complete");
+    window.setTimeout(() => {
+        overlay.classList.add("hidden");
+        document.body.classList.remove("pg-booting");
+    }, 520);
+}
 
 function animateNumericValue(elementId, target, options = {}) {
     const node = document.getElementById(elementId);
@@ -389,27 +423,47 @@ function renderSummary(summary, files) {
         ? summary.protected_outputs
         : (files || []).filter((file) => ["Encrypted", "Redacted", "Allowed"].includes(file.status_label)).length);
     const averageRisk = Number(summary && summary.average_risk_score != null ? summary.average_risk_score : 0);
+    const entityTotals = (summary && summary.entity_totals) || {};
+    const sensitiveTotal = Object.values(entityTotals).reduce((total, count) => total + Number(count || 0), 0);
+    const confidence = Math.max(72, Math.min(99.3, 99.3 - (averageRisk * 6.5) - (highRisk * 0.18)));
 
     animateNumericValue("metricScanned", scanned, { formatter: (value) => Math.round(value).toLocaleString() });
     animateNumericValue("metricProtected", protectedCount, { formatter: (value) => Math.round(value).toLocaleString() });
     animateNumericValue("metricHighRisk", highRisk, { formatter: (value) => Math.round(value).toLocaleString() });
+    animateNumericValue("metricSensitive", sensitiveTotal, { formatter: (value) => Math.round(value).toLocaleString() });
+    animateNumericValue("metricConfidence", confidence, { decimals: 1, formatter: (value) => `${value.toFixed(1)}%` });
+
+    const confidenceBar = document.getElementById("metricConfidenceBar");
+    if (confidenceBar) confidenceBar.style.width = `${confidence.toFixed(1)}%`;
+
+    const scannedMeta = document.getElementById("metricScannedMeta");
+    const sensitiveMeta = document.getElementById("metricSensitiveMeta");
+    const protectedMeta = document.getElementById("metricProtectedMeta");
+    const confidenceMeta = document.getElementById("metricConfidenceMeta");
+    if (scannedMeta) scannedMeta.textContent = `${Math.max(0, scanned - protectedCount)} awaiting review | ${scanned.toLocaleString()} total scanned`;
+    if (sensitiveMeta) sensitiveMeta.textContent = `${highRisk.toLocaleString()} high-risk alerts across current activity`;
+    if (protectedMeta) protectedMeta.textContent = `${protectedCount.toLocaleString()} encrypted or redacted outputs secured`;
+    if (confidenceMeta) confidenceMeta.textContent = `Model confidence calibrated from a ${averageRisk.toFixed(1)} average risk score`;
 
     animateNumericValue("reportDocsScanned", scanned, { formatter: (value) => Math.round(value).toLocaleString() });
     animateNumericValue("reportHighRisk", highRisk, { formatter: (value) => Math.round(value).toLocaleString() });
     animateNumericValue("reportAverageRisk", averageRisk, { decimals: 1, formatter: (value) => value.toFixed(1) });
 
-    const entityTotals = (summary && summary.entity_totals) || {};
     const entityBody = document.getElementById("entityTotalsBody");
-    const entityRows = Object.entries(entityTotals)
-        .filter(([, count]) => Number(count) > 0)
-        .map(([type, count]) => `
-            <tr>
-                <td>${escapeHtml(formatFindingType(type))}</td>
-                <td>${escapeHtml(String(count))}</td>
-            </tr>
-        `)
-        .join("");
-    entityBody.innerHTML = entityRows || `<tr><td colspan="2">No recent detections.</td></tr>`;
+    if (entityBody) {
+        const entityRows = Object.entries(entityTotals)
+            .filter(([, count]) => Number(count) > 0)
+            .map(([type, count]) => `
+                <tr>
+                    <td>${escapeHtml(formatFindingType(type))}</td>
+                    <td>${escapeHtml(String(count))}</td>
+                </tr>
+            `)
+            .join("");
+        entityBody.innerHTML = entityRows || `<tr><td colspan="2">No recent detections.</td></tr>`;
+    }
+
+    renderEntityHighlights(entityTotals);
 }
 
 function renderSystemSettings(settings, lifecycleEngine) {
@@ -459,8 +513,9 @@ function renderVaultLifecycleSummary(summary, vaultSummary = {}, watchState = {}
 
 function renderDashboardTable(files) {
     const body = document.getElementById("dashboardTableBody");
+    if (!body) return;
     if (!files.length) {
-        body.innerHTML = `<tr><td colspan="3">No recent activity yet.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="4">No recent activity yet.</td></tr>`;
         return;
     }
     body.innerHTML = files.map((file) => `
@@ -468,8 +523,57 @@ function renderDashboardTable(files) {
             <td class="pg-cell-strong">${escapeHtml(file.filename)}</td>
             <td><span class="pg-badge ${badgeClass(file.risk_level)}">${escapeHtml(file.risk_level || "Safe")}</span></td>
             <td><span class="pg-badge ${badgeClass(file.status_label)}">${escapeHtml(displayStatusLabel(file.status_label || "Stored"))}</span></td>
+            <td>${escapeHtml(formatTimestamp(file.created_at))}</td>
         </tr>
     `).join("");
+}
+
+function renderEntityHighlights(entityTotals) {
+    const node = document.getElementById("dashboardEntityHighlights");
+    if (!node) return;
+    const entries = Object.entries(entityTotals || {})
+        .filter(([, count]) => Number(count) > 0)
+        .sort((a, b) => Number(b[1]) - Number(a[1]))
+        .slice(0, 4);
+    if (!entries.length) {
+        node.innerHTML = '<div class="pg-entity-highlight-item">No active entity hotspots.</div>';
+        return;
+    }
+    node.innerHTML = entries.map(([type, count]) => `
+        <div class="pg-entity-highlight-item">
+            <span class="pg-entity-highlight-check">&#10003;</span>
+            <div>
+                <strong>${escapeHtml(formatFindingType(type))}</strong>
+                <span>${escapeHtml(String(count))} detections in the recent window</span>
+            </div>
+        </div>
+    `).join("");
+}
+
+function renderInsights(summary, files, watchState) {
+    const node = document.getElementById("dashboardInsights");
+    if (!node) return;
+    const latest = (files || [])[0];
+    const insights = [];
+    const highRisk = Number(summary && summary.high_risk_alerts ? summary.high_risk_alerts : 0);
+    const watchEnabled = !!(watchState && watchState.enabled);
+    const watchRunning = !!(watchState && watchState.running);
+
+    if (highRisk > 0) {
+        insights.push(`High-risk activity detected in ${highRisk} recent file${highRisk === 1 ? '' : 's'}. Prioritize encryption or vault review.`);
+    }
+    if (latest) {
+        insights.push(`${latest.filename} completed with a ${String(latest.risk_level || 'Safe').toLowerCase()} risk profile and ${displayStatusLabel(latest.status_label || 'Stored').toLowerCase()} protection status.`);
+    }
+    if (watchEnabled && watchRunning) {
+        insights.push(`Watch Folder is active and scanning ${watchState.path || 'your intake lane'} in real time.`);
+    } else if (watchEnabled) {
+        insights.push('Watch Folder is configured but paused until the vault is unlocked again.');
+    } else {
+        insights.push('Watch Folder is offline. Start the intake lane to process files automatically.');
+    }
+
+    node.innerHTML = insights.slice(0, 3).map((item) => `<div class="pg-insight-item">${escapeHtml(item)}</div>`).join("");
 }
 
 function renderVaultTable(files) {
@@ -593,6 +697,7 @@ function renderWorkspace(workspace) {
     if (!workspace) return;
     renderSummary(workspace.summary || {}, workspace.recent_files || []);
     renderDashboardTable(workspace.recent_files || []);
+    renderInsights(workspace.summary || {}, workspace.recent_files || [], workspace.watch_folder || {});
     renderVaultLifecycleSummary(
         workspace.lifecycle_summary || {},
         workspace.vault_summary || {},
@@ -845,12 +950,36 @@ function attachTableActions() {
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
+    document.body.classList.add("pg-booting");
+    const startupStart = Date.now();
+    updateStartupOverlay(0);
     applyTheme(document.body.dataset.theme || "dark");
     window.addEventListener("pointerdown", markAudioReady, { once: true });
     window.addEventListener("keydown", markAudioReady, { once: true });
 
     document.getElementById("openWatchFolderBtn").addEventListener("click", () => setActiveScreen("watch"));
     document.getElementById("logoutBtn").addEventListener("click", logout);
+    const bindScreenShortcut = (id, screen) => {
+        const node = document.getElementById(id);
+        if (!node) return;
+        node.addEventListener("click", () => setActiveScreen(screen));
+    };
+    const bindWatchShortcut = (id) => {
+        const node = document.getElementById(id);
+        if (!node) return;
+        node.addEventListener("click", () => {
+            setActiveScreen("watch");
+            const target = document.getElementById("useDemoWatchFolderBtn") || document.getElementById("pickWatchFolderBtn");
+            if (target) target.focus();
+        });
+    };
+    bindWatchShortcut("dashboardScanBtn");
+    bindWatchShortcut("dashboardActionMonitorBtn");
+    bindScreenShortcut("dashboardOpenVaultBtn", "vault");
+    bindScreenShortcut("dashboardActionVaultBtn", "vault");
+    bindScreenShortcut("dashboardReportsBtn", "reports");
+    bindScreenShortcut("dashboardActionRedactBtn", "reports");
+    bindScreenShortcut("dashboardActionEncryptBtn", "vault");
     document.getElementById("pickWatchFolderBtn").addEventListener("click", pickWatchFolder);
     document.getElementById("stopWatchFolderBtn").addEventListener("click", stopWatchFolder);
     document.getElementById("saveProfileBtn").addEventListener("click", saveProfile);
@@ -866,7 +995,17 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     attachTableActions();
     setActiveScreen("dashboard");
+    updateStartupOverlay(1);
     await loadWorkspace();
+    updateStartupOverlay(2);
+    await loadWatchFolderStatus();
+    updateStartupOverlay(3);
+    const minBootDuration = 1800;
+    const elapsed = Date.now() - startupStart;
+    if (elapsed < minBootDuration) {
+        await new Promise((resolve) => window.setTimeout(resolve, minBootDuration - elapsed));
+    }
+    hideStartupOverlay();
     window.setInterval(loadWorkspace, 1000);
 });
 

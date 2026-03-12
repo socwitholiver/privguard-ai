@@ -15,6 +15,7 @@ DB_PATH = Path(SYSTEM_CONFIG["audit"]["database_path"])
 
 
 def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    # SQLite runs with foreign keys disabled by default, so init_db/get_conn enable it explicitly.
     existing = {
         row[1]
         for row in conn.execute(f"PRAGMA table_info({table})")
@@ -26,6 +27,7 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS audit_events (
@@ -121,6 +123,7 @@ def init_db() -> None:
 @contextmanager
 def get_conn() -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
     try:
         yield conn
         conn.commit()

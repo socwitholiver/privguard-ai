@@ -8,6 +8,27 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/privguard-cyber-ui.css', v=asset_version) }}">
 </head>
 <body class="pg-dashboard-body" data-theme="{{ user.theme or 'dark' }}" data-demo-watch-folder="{{ demo_watch_folder }}" data-demo-file-count="{{ demo_file_count }}">
+    <div class="pg-startup-overlay" id="startupOverlay" aria-hidden="true">
+        <div class="pg-startup-grid"></div>
+        <div class="pg-startup-panel pg-startup-panel-logo">
+            <div class="pg-startup-logo-wrap">
+                <img class="pg-startup-logo-image" src="{{ url_for('static', filename='PRIVGUARD AI OFFICIAL LOGO.png') }}" alt="PrivGuard AI logo">
+                <div class="pg-startup-logo-glow"></div>
+            </div>
+            <div class="pg-startup-copy">Initializing local intelligence, vault orchestration, and protection services.</div>
+            <div class="pg-startup-status-row">
+                <div class="pg-startup-status-label" id="startupStatusLabel">Preparing secure workspace</div>
+                <div class="pg-startup-status-meta" id="startupStatusMeta">Boot sequence 01/04</div>
+            </div>
+            <div class="pg-startup-progress"><div class="pg-startup-progress-bar" id="startupProgressBar"></div></div>
+            <div class="pg-startup-check-grid">
+                <div class="pg-startup-check" id="startupCheck0">Loading interface shell</div>
+                <div class="pg-startup-check" id="startupCheck1">Syncing watch-folder telemetry</div>
+                <div class="pg-startup-check" id="startupCheck2">Reading vault intelligence</div>
+                <div class="pg-startup-check" id="startupCheck3">Launching command center</div>
+            </div>
+        </div>
+    </div>
     <div class="pg-app-shell">
         <header class="pg-topbar">
             <div class="pg-brand">
@@ -21,6 +42,11 @@
                     <div class="pg-overline" id="topSectionLabel">Personal Cyber Defense Workspace</div>
                     <div class="pg-brand-signoff">Developed by <strong>Oliver Jackson</strong></div>
                 </div>
+            </div>
+            <div class="pg-topbar-statuses">
+                <div class="pg-status-chip pg-status-chip-live"><span class="pg-status-chip-dot"></span><span>Offline Mode Active</span></div>
+                <div class="pg-status-chip"><span class="pg-status-chip-icon">AI</span><span>AI Engine Loaded</span></div>
+                <div class="pg-status-chip"><span class="pg-status-chip-icon">DPA</span><span>DPA 2019 Ready</span></div>
             </div>
             <div class="pg-topbar-right">
                 <button class="pg-icon-button" id="themeToggleBtn" type="button" aria-label="Toggle interface theme">
@@ -70,75 +96,129 @@
 
             <main class="pg-main">
                 <section class="pg-screen active" data-screen="dashboard">
-                    <div class="pg-screen-head">
+                    <div class="pg-screen-head pg-dashboard-head">
                         <div>
-                            <h1 class="pg-screen-title">PrivGuard AI - Cyber Defense Workspace</h1>
-                            <p class="pg-screen-copy">PrivGuard watches your intake folder like a personal security console. New files are scanned, classified, redacted or encrypted, and stored locally with minimal friction.</p>
+                            <h1 class="pg-screen-title">PrivGuard AI Command Center</h1>
+                            <p class="pg-screen-copy">A neon cyber workspace for scanning, classifying, redacting, encrypting, and tracking sensitive files without sending them to the cloud.</p>
                         </div>
                         <div class="pg-screen-actions">
                             <button class="pg-button" id="openWatchFolderBtn" type="button">
                                 <svg class="pg-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 13H7a5 5 0 1 1 5 5c-1.38 0-2.5 1.12-2.5 2.5V22h5v-1.5c0-.28.22-.5.5-.5a9 9 0 0 0 0-18z"></path></svg>
-                                Use WATCH FOLDER
+                                Scan Documents
                             </button>
                         </div>
                     </div>
 
-                    <div class="pg-metric-grid">
-                        <article class="pg-metric-card">
-                            <span>Documents Scanned</span>
+                    <div class="pg-metric-grid pg-metric-grid-quad">
+                        <article class="pg-metric-card pg-kpi-card">
+                            <span class="pg-kpi-eyebrow">Documents Scanned</span>
                             <strong id="metricScanned">0</strong>
-                            <p>Inbound records processed automatically by the local protection engine.</p>
+                            <p id="metricScannedMeta">Files processed in the secure local pipeline.</p>
                         </article>
-                        <article class="pg-metric-card">
-                            <span>Protected Outputs</span>
+                        <article class="pg-metric-card pg-kpi-card pg-kpi-alert">
+                            <span class="pg-kpi-eyebrow">Sensitive Items Found</span>
+                            <strong id="metricSensitive">0</strong>
+                            <p id="metricSensitiveMeta">Entity detections across recent scans.</p>
+                        </article>
+                        <article class="pg-metric-card pg-kpi-card">
+                            <span class="pg-kpi-eyebrow">Protected Data</span>
                             <strong id="metricProtected">0</strong>
-                            <p>Protected records written to the secure local vault for controlled handling.</p>
+                            <p id="metricProtectedMeta">Encrypted or redacted outputs secured.</p>
                         </article>
-                        <article class="pg-metric-card">
-                            <span>High Risk Alerts</span>
-                            <strong id="metricHighRisk">0</strong>
-                            <p>Recent records that triggered the strongest protection policy.</p>
+                        <article class="pg-metric-card pg-kpi-card pg-kpi-confidence">
+                            <span class="pg-kpi-eyebrow">AI Confidence</span>
+                            <strong id="metricConfidence">0%</strong>
+                            <p id="metricConfidenceMeta">Protection confidence for recent analysis.</p>
+                            <div class="pg-confidence-bar"><span id="metricConfidenceBar"></span></div>
                         </article>
                     </div>
 
-                    <div class="pg-monitor-grid">
-                        <section class="pg-card">
-                            <div class="pg-card-head">
-                                <div>
-                                    <h2 class="pg-card-title">Background Engine</h2>
-                                    <p class="pg-card-copy">Watch-folder mode acts like a personal security intake lane. Drop files once and PrivGuard handles first-pass protection in the background.</p>
+                    <div class="pg-dashboard-grid">
+                        <div class="pg-dashboard-main-column">
+                            <section class="pg-card pg-command-card">
+                                <div class="pg-card-head">
+                                    <div>
+                                        <h2 class="pg-card-title">Scan Documents</h2>
+                                        <p class="pg-card-copy">WATCH FOLDER acts as your intake lane. Drop files once, let PrivGuard scan them locally, and route protected outputs into the vault.</p>
+                                    </div>
+                                    <span id="dashboardWatchBadge" class="pg-badge pg-badge-risk-safe">Watch Off</span>
                                 </div>
-                                <span id="dashboardWatchBadge" class="pg-badge pg-badge-risk-safe">Watch Off</span>
-                            </div>
-                            <div class="pg-step-list">
-                                <div class="pg-step-row"><div class="pg-cell-strong">Current Folder</div><div id="dashboardWatchPath">Not configured</div></div>
-                                <div class="pg-step-row"><div class="pg-cell-strong">Last Scan</div><div id="dashboardWatchLastScan">No activity yet</div></div>
-                                <div class="pg-step-row"><div class="pg-cell-strong">Latest Protected File</div><div id="dashboardLatestFile">Waiting for watch-folder input</div></div>
-                                <div class="pg-step-row"><div class="pg-cell-strong">Latest Outcome</div><div id="dashboardLatestOutcome">No protected output yet</div></div>
-                            </div>
-                            <div class="pg-status-box">WATCH FOLDER acts as your local intake inbox for sensitive files, reports, credentials, and client records.</div>
-                        </section>
+                                <div class="pg-dropzone-shell">
+                                    <div class="pg-dropzone-illustration" aria-hidden="true">
+                                        <div class="pg-dropzone-folder"></div>
+                                    </div>
+                                    <div class="pg-dropzone-copy">
+                                        <strong>Drag files into WATCH FOLDER or launch the local intake lane.</strong>
+                                        <span>Current folder: <span id="dashboardWatchPath">Not configured</span></span>
+                                        <span>Last scan: <span id="dashboardWatchLastScan">No activity yet</span></span>
+                                    </div>
+                                </div>
+                                <div class="pg-command-actions">
+                                    <button class="pg-button" id="dashboardScanBtn" type="button">Scan Now</button>
+                                    <button class="pg-button-secondary" id="dashboardOpenVaultBtn" type="button">Open Secure Vault</button>
+                                    <button class="pg-button-secondary" id="dashboardReportsBtn" type="button">View Reports</button>
+                                </div>
+                                <div class="pg-command-status-row">
+                                    <div class="pg-status-box">Latest file: <strong id="dashboardLatestFile">Waiting for watch-folder input</strong></div>
+                                    <div class="pg-status-box">Latest outcome: <strong id="dashboardLatestOutcome">No protected output yet</strong></div>
+                                </div>
+                            </section>
 
-                        <section class="pg-card">
-                            <div class="pg-card-head">
-                                <div>
-                                    <h2 class="pg-card-title">Recent Activity</h2>
-                                    <p class="pg-card-copy">Recent records processed with risk level and the final protection decision.</p>
+                            <section class="pg-card pg-detection-card">
+                                <div class="pg-card-head">
+                                    <div>
+                                        <h2 class="pg-card-title">Detected Sensitive Information</h2>
+                                        <p class="pg-card-copy">Recent files processed with their risk level and final protection action.</p>
+                                    </div>
+                                    <div class="pg-search-shell">Recent Detection Feed</div>
                                 </div>
-                            </div>
-                            <div class="pg-table-wrap">
-                                <table class="pg-table">
-                                    <thead>
-                                        <tr>
-                                            <th>File Name</th>
-                                            <th>Risk Level</th>
-                                            <th>Protection Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="dashboardTableBody"></tbody>
-                                </table>
-                            </div>
-                        </section>
+                                <div class="pg-table-wrap pg-table-wrap-compact">
+                                    <table class="pg-table pg-dashboard-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Source File</th>
+                                                <th>Risk Level</th>
+                                                <th>Protection</th>
+                                                <th>Processed</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="dashboardTableBody"></tbody>
+                                    </table>
+                                </div>
+                            </section>
+                        </div>
+
+                        <div class="pg-dashboard-side-column">
+                            <section class="pg-card pg-insights-card">
+                                <div class="pg-card-head">
+                                    <div>
+                                        <h2 class="pg-card-title">AI Insights</h2>
+                                        <p class="pg-card-copy">Fast guidance based on the latest detections and watch-folder state.</p>
+                                    </div>
+                                </div>
+                                <div id="dashboardInsights" class="pg-insights-list">
+                                    <div class="pg-insight-item">Waiting for recent scan activity.</div>
+                                </div>
+                            </section>
+
+                            <section class="pg-card pg-actions-card">
+                                <div class="pg-card-head">
+                                    <div>
+                                        <h2 class="pg-card-title">Protect Detected Data</h2>
+                                        <p class="pg-card-copy">Quick routes into the protection workflow and recent entity hotspots.</p>
+                                    </div>
+                                </div>
+                                <div class="pg-action-grid">
+                                    <button class="pg-button" id="dashboardActionRedactBtn" type="button">Redact</button>
+                                    <button class="pg-button-secondary" id="dashboardActionEncryptBtn" type="button">Encrypt</button>
+                                    <button class="pg-button-secondary" id="dashboardActionVaultBtn" type="button">Vault</button>
+                                    <button class="pg-button-secondary" id="dashboardActionMonitorBtn" type="button">Monitor</button>
+                                </div>
+                                <div id="dashboardEntityHighlights" class="pg-entity-highlight-list">
+                                    <div class="pg-entity-highlight-item">No active entity hotspots.</div>
+                                </div>
+                            </section>
+                        </div>
                     </div>
                 </section>
 

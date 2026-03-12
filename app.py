@@ -1,6 +1,7 @@
 ﻿import json
 import os
 import shutil
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 from tkinter import Tk, filedialog
@@ -60,13 +61,36 @@ from storage.document_repo import (
     vault_summary,
 )
 
+
+def _load_flask_secret_key() -> str:
+    """Load a stable local secret key without hardcoding a reusable fallback in git."""
+    env_value = os.environ.get("PRIVGUARD_SECRET_KEY", "").strip()
+    if env_value:
+        return env_value
+
+    secret_path = Path("instance/flask_secret_key.txt")
+    if secret_path.exists():
+        existing = secret_path.read_text(encoding="utf-8").strip()
+        if existing:
+            return existing
+
+    secret_path.parent.mkdir(parents=True, exist_ok=True)
+    generated = secrets.token_urlsafe(48)
+    secret_path.write_text(generated, encoding="utf-8")
+    return generated
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("PRIVGUARD_SECRET_KEY", "privguard-dev-secret-change-me")
+app.secret_key = _load_flask_secret_key()
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("PRIVGUARD_SECURE_COOKIE", "0") == "1"
 ensure_vault_layout()
 init_db()
 
+# Dashboard entity totals are rendered across the command-center views.
 ENTITY_TOTAL_KEYS = (
     "national_ids",
     "phone_numbers",
