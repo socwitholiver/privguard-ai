@@ -1,4 +1,6 @@
-![PrivGuard AI Logo](./Logo/PRIVGUARD%20AI%20OFFICIAL%20LOGO.png)
+<p align="center">
+  <img src="./Logo/PRIVGUARD%20AI%20OFFICIAL%20LOGO.png" alt="PrivGuard AI Logo" width="720">
+</p>
 
 # PrivGuard AI
 
