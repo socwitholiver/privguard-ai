@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PrivGuard AI</title>
+    <meta name="color-scheme" content="dark light">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/privguard-cyber-ui.css', v=asset_version) }}">
 </head>
 <body class="pg-dashboard-body" data-theme="{{ user.theme or 'dark' }}" data-demo-watch-folder="{{ demo_watch_folder }}" data-demo-file-count="{{ demo_file_count }}">
@@ -17,7 +18,8 @@
                 </div>
                 <div>
                     <div class="pg-brand-text">PRIVGUARD AI</div>
-                    <div class="pg-overline" id="topSectionLabel">Dashboard</div>
+                    <div class="pg-overline" id="topSectionLabel">Personal Cyber Defense Workspace</div>
+                    <div class="pg-brand-signoff">Developed by <strong>Oliver Jackson</strong></div>
                 </div>
             </div>
             <div class="pg-topbar-right">
@@ -63,15 +65,15 @@
                         <span class="pg-nav-label">Settings</span>
                     </button>
                 </nav>
-                <div class="pg-sidebar-foot">Offline records-protection controls running as a background security layer for Kenyan public-sector document workflows.</div>
+                <div class="pg-sidebar-foot">Offline document defense controls running as a local-first security layer for privacy-conscious teams and operators.</div>
             </aside>
 
             <main class="pg-main">
                 <section class="pg-screen active" data-screen="dashboard">
                     <div class="pg-screen-head">
                         <div>
-                            <h1 class="pg-screen-title">PrivGuard AI - Secure Workspace</h1>
-                            <p class="pg-screen-copy">PrivGuard now protects public-sector and critical-service records through one intake lane called WATCH FOLDER. New files are scanned, classified, redacted or encrypted, and stored locally in the background.</p>
+                            <h1 class="pg-screen-title">PrivGuard AI - Cyber Defense Workspace</h1>
+                            <p class="pg-screen-copy">PrivGuard watches your intake folder like a personal security console. New files are scanned, classified, redacted or encrypted, and stored locally with minimal friction.</p>
                         </div>
                         <div class="pg-screen-actions">
                             <button class="pg-button" id="openWatchFolderBtn" type="button">
@@ -104,7 +106,7 @@
                             <div class="pg-card-head">
                                 <div>
                                     <h2 class="pg-card-title">Background Engine</h2>
-                                    <p class="pg-card-copy">Watch-folder mode mirrors a real records inbox. Officers drop files once and PrivGuard handles first-pass protection.</p>
+                                    <p class="pg-card-copy">Watch-folder mode acts like a personal security intake lane. Drop files once and PrivGuard handles first-pass protection in the background.</p>
                                 </div>
                                 <span id="dashboardWatchBadge" class="pg-badge pg-badge-risk-safe">Watch Off</span>
                             </div>
@@ -114,7 +116,7 @@
                                 <div class="pg-step-row"><div class="pg-cell-strong">Latest Protected File</div><div id="dashboardLatestFile">Waiting for watch-folder input</div></div>
                                 <div class="pg-step-row"><div class="pg-cell-strong">Latest Outcome</div><div id="dashboardLatestOutcome">No protected output yet</div></div>
                             </div>
-                            <div class="pg-status-box">WATCH FOLDER acts as the operational intake inbox for payroll, admissions, legal, and citizen-service records.</div>
+                            <div class="pg-status-box">WATCH FOLDER acts as your local intake inbox for sensitive files, reports, credentials, and client records.</div>
                         </section>
 
                         <section class="pg-card">
@@ -153,7 +155,7 @@
                             <div class="pg-card-head">
                                 <div>
                                     <h2 class="pg-card-title">Configure Intake Folder</h2>
-                                    <p class="pg-card-copy">WATCH FOLDER is preloaded with {{ demo_file_count }} synthetic public-sector record samples. PrivGuard scans the existing batch, then keeps watching for new inbound files.</p>
+                                    <p class="pg-card-copy">WATCH FOLDER is preloaded with {{ demo_file_count }} synthetic sensitive-file samples. PrivGuard scans the existing batch, then keeps watching for new inbound files.</p>
                                 </div>
                                 <span id="watchBadge" class="pg-badge pg-badge-risk-safe">Watch Off</span>
                             </div>
@@ -225,7 +227,7 @@
                                 <span class="pg-chip">Medium risk -> Redact</span>
                                 <span class="pg-chip">High risk -> Redact + Encrypt</span>
                             </div>
-                            <div class="pg-inline-box">Detected entities include Kenyan IDs, KRA PINs, phones, emails, passwords, financial data, and names.</div>
+                            <div class="pg-inline-box">Detected entities include national IDs, tax IDs, phones, emails, passwords, financial data, and names.</div>
                         </section>
                     </div>
                 </section>
@@ -514,6 +516,8 @@
     <script src="{{ url_for('static', filename='js/privguard-workspace.js', v=asset_version) }}"></script>
 </body>
 </html>
+
+
 
 
 

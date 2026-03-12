@@ -1,4 +1,4 @@
-﻿const screenTitles = {
+const screenTitles = {
     dashboard: "Dashboard",
     watch: "Watch Folder",
     vault: "Secure Vault",
@@ -25,6 +25,42 @@ let workspaceState = { user: null, pendingScreen: null, pendingOpenUrl: null };
 let dashboardRefreshTimer = null;
 let liveWatchState = { lastProcessedAt: null, lastDocumentId: null, processedCount: 0, audioReady: false, audioContext: null };
 let themePreference = null;
+const kpiAnimationState = Object.create(null);
+
+function animateNumericValue(elementId, target, options = {}) {
+    const node = document.getElementById(elementId);
+    if (!node) return;
+    const duration = Number(options.duration || 700);
+    const decimals = Number(options.decimals || 0);
+    const suffix = String(options.suffix || "");
+    const formatter = options.formatter;
+    const nextValue = Number.isFinite(Number(target)) ? Number(target) : 0;
+    const currentValue = Number(kpiAnimationState[elementId] ?? 0);
+    if (currentValue == nextValue) {
+        node.textContent = formatter ? formatter(nextValue) : `${nextValue.toFixed(decimals)}${suffix}`;
+        return;
+    }
+
+    const startValue = currentValue;
+    const startTime = performance.now();
+    kpiAnimationState[elementId] = nextValue;
+
+    const render = (value) => {
+        node.textContent = formatter ? formatter(value) : `${value.toFixed(decimals)}${suffix}`;
+    };
+
+    const frame = (now) => {
+        if (kpiAnimationState[elementId] !== nextValue) return;
+        const progress = Math.min(1, (now - startTime) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const value = startValue + ((nextValue - startValue) * eased);
+        render(progress >= 1 ? nextValue : value);
+        if (progress < 1) window.requestAnimationFrame(frame);
+    };
+
+    window.requestAnimationFrame(frame);
+}
+
 
 function escapeHtml(value) {
     return String(value || "")
@@ -352,15 +388,15 @@ function renderSummary(summary, files) {
     const protectedCount = Number(summary && summary.protected_outputs != null
         ? summary.protected_outputs
         : (files || []).filter((file) => ["Encrypted", "Redacted", "Allowed"].includes(file.status_label)).length);
-    const averageRisk = Number(summary && summary.average_risk_score ? summary.average_risk_score : 0);
+    const averageRisk = Number(summary && summary.average_risk_score != null ? summary.average_risk_score : 0);
 
-    document.getElementById("metricScanned").textContent = scanned;
-    document.getElementById("metricProtected").textContent = protectedCount;
-    document.getElementById("metricHighRisk").textContent = highRisk;
+    animateNumericValue("metricScanned", scanned, { formatter: (value) => Math.round(value).toLocaleString() });
+    animateNumericValue("metricProtected", protectedCount, { formatter: (value) => Math.round(value).toLocaleString() });
+    animateNumericValue("metricHighRisk", highRisk, { formatter: (value) => Math.round(value).toLocaleString() });
 
-    document.getElementById("reportDocsScanned").textContent = scanned;
-    document.getElementById("reportHighRisk").textContent = highRisk;
-    document.getElementById("reportAverageRisk").textContent = averageRisk.toFixed ? averageRisk.toFixed(1) : averageRisk;
+    animateNumericValue("reportDocsScanned", scanned, { formatter: (value) => Math.round(value).toLocaleString() });
+    animateNumericValue("reportHighRisk", highRisk, { formatter: (value) => Math.round(value).toLocaleString() });
+    animateNumericValue("reportAverageRisk", averageRisk, { decimals: 1, formatter: (value) => value.toFixed(1) });
 
     const entityTotals = (summary && summary.entity_totals) || {};
     const entityBody = document.getElementById("entityTotalsBody");
