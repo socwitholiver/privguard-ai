@@ -1,0 +1,57 @@
+﻿{
+    "evidence_sources":  {
+                             "detection":  "reports/eval_detection.json",
+                             "redaction":  "reports/eval_redaction.json",
+                             "ocr":  "reports/eval_ocr.json",
+                             "perf":  "reports/perf_benchmark.json",
+                             "round1":  "reports/round1_benchmarks.json"
+                         },
+    "headline_metrics":  {
+                             "detection":  {
+                                               "macro_f1":  1.0,
+                                               "covered_entities":  [
+                                                                        "national_ids",
+                                                                        "phone_numbers",
+                                                                        "emails",
+                                                                        "kra_pins"
+                                                                    ],
+                                               "sample_count":  4
+                                           },
+                             "redaction":  {
+                                               "redaction_leakage_rate":  0.0,
+                                               "total_leaks":  0,
+                                               "samples_tested":  2,
+                                               "pass_count":  2
+                                           },
+                             "perf":  {
+                                          "samples_benchmarked":  2,
+                                          "avg_latency_ms":  1.66,
+                                          "p95_latency_ms":  1.67,
+                                          "peak_memory_mb":  0.02
+                                      },
+                             "round1":  {
+                                            "ok_runs":  2,
+                                            "avg_total_ms":  5.82,
+                                            "avg_extract_ms":  1.29,
+                                            "avg_detect_ms":  1.23,
+                                            "avg_characters_per_second":  51878.52
+                                        },
+                             "ocr":  {
+                                         "image_samples_count":  0,
+                                         "average_wer":  null,
+                                         "note":  "Add image samples with \u0027reference_text\u0027 in ground truth for full OCR KPI coverage."
+                                     }
+                         },
+    "judge_ready_claims":  [
+                               "Current labeled text detection set reports macro F1 of 1.0 across the covered entity types.",
+                               "Current redaction evaluation reports zero leaks across the sampled benchmark files.",
+                               "Current local benchmark artifacts show interactive single-document latency on the tested text samples.",
+                               "OCR evidence is still incomplete because the current OCR evaluation set has zero labeled image samples."
+                           ],
+    "highest_priority_gaps":  [
+                                  "Add labeled OCR samples for scanned PDFs and images.",
+                                  "Add a baseline comparison against manual records review time.",
+                                  "Expand the labeled evaluation set beyond the two current benchmark text samples.",
+                                  "Collect workflow-owner feedback or pilot observations for sector impact evidence."
+                              ]
+}

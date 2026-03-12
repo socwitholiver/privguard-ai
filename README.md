@@ -1,238 +1,94 @@
-# PRIVGUARD AI (Offline MVP)
+﻿# PrivGuard AI
 
-PRIVGUARD AI is a secure, offline-capable MVP for detecting and protecting
-sensitive personal data in documents used by schools, SMEs, and local
-organizations in Kenya.
+PrivGuard AI is an offline-first records-protection MVP for Kenyan public-sector and critical-service document workflows.
 
-It is designed to support practical privacy workflows under low-connectivity
-conditions while aligning to key principles in Kenya's Data Protection Act
-(DPA 2019), such as data minimization, purpose limitation, and secure storage.
+The current MVP is optimized for one operational job: protect sensitive inbound records before they are shared, mishandled, or leaked. The strongest fit today is public-sector HR, payroll, admissions, and citizen-service document handling where agencies must process personally identifiable and operationally sensitive records on local infrastructure.
 
-## Problem Statement
+## Core Workflow
 
-As institutions in Kenya digitize records, personally identifiable information
-(PII) such as National ID numbers, phone numbers, email addresses, and KRA PINs
-is often exposed in shared or archived documents. Many organizations need an
-affordable, lightweight privacy tool that:
+1. An operator signs in and unlocks the local vault.
+2. A monitored intake folder receives new files.
+3. PrivGuard extracts text, detects sensitive entities, scores risk, and applies a policy outcome.
+4. The system stores originals, redacted outputs, encrypted artifacts, reports, and audit trails locally.
+5. Lifecycle controls track retention, archive eligibility, and secure deletion actions.
 
-- Works fully offline
-- Detects sensitive data intelligently
-- Classifies risk quickly
-- Applies one-click protections (redact/mask/encrypt)
-- Gives clear compliance guidance
+## Why This Matters
 
-## MVP Features
+PrivGuard is designed for environments where agencies cannot rely on foreign cloud tooling for sensitive citizen or operational records. The MVP reduces manual handling risk by turning privacy controls into an automated operational workflow.
 
-- **Offline AI processing**
-  - Detection and protection run locally with no internet dependency.
-  - Supports image OCR locally through Tesseract (no cloud APIs).
-- **Smart data detection**
-  - Detects National IDs, phone numbers, emails, and KRA PINs.
-  - Uses regex + lightweight context scoring (NLP-style heuristic).
-- **Risk classification engine**
-  - Assigns Low, Medium, High risk from weighted detection outputs.
-- **One-click protection actions**
-  - `redact`: irreversible token replacement (`[REDACTED]`)
-  - `mask`: partially hide values for operational use
-  - `encrypt`: reversible encryption using secure Fernet keys
-- **Compliance dashboard**
-  - CLI dashboard summary (supports rich output if installed).
-- **Student and SME friendly**
-  - Minimal dependencies and runs on modest hardware.
+Current public-sector use cases include:
 
-## Project Structure
+- HR and payroll records containing IDs, salaries, contacts, and passwords.
+- Admissions and citizen-service forms containing names, IDs, and contact details.
+- Legal and contract records requiring controlled retention and auditability.
 
-```text
-privguard-ai/
-├── main.py                  # CLI entrypoint
-├── detection.py             # Regex + context-based sensitive data detection
-├── classification.py        # Risk scoring and DPA-aligned insights
-├── protection.py            # Redact, mask, encrypt/decrypt actions
-├── dashboard.py             # CLI dashboard rendering
-├── requirements.txt
-├── demo_docs/
-│   ├── school_admission_sample.txt
-│   └── sme_payroll_sample.txt
-└── tests/
-    ├── test_mvp_detection.py
-    ├── test_mvp_classification.py
-    └── test_mvp_protection.py
-```
+## MVP Capabilities
 
-## Installation
+- Offline-first detection and classification.
+- Automated redaction for shareable outputs.
+- Encryption of high-risk originals with wrapped per-document keys.
+- Local secure vault storage for originals, protected files, reports, keys, and logs.
+- Audit logging and lifecycle management for retention, archive, and deletion decisions.
+- Dashboard-driven watch-folder operations for non-technical users.
 
-1. Use Python 3.10+.
-2. Install dependencies:
+## Demo Workflow
+
+- Default demo intake: `WATCH FOLDER`
+- Default dataset size: `500` synthetic sensitive files
+- Automatic pipeline per file:
+  - text extraction
+  - sensitive-data detection
+  - risk classification
+  - policy-based redaction or encryption
+  - compliance report generation
+  - secure local vault storage
+  - lifecycle tracking
+
+## Security Configuration
+
+Tracked configuration no longer stores the live demo vault PIN.
+
+- Repository defaults live in [config/system_config.yaml](/C:/Users/HP/Desktop/privguard-ai/config/system_config.yaml)
+- Local secret overrides live in `instance/local_system_config.yaml`
+- `instance/` is ignored by git and is the correct place for demo-only secrets or local overrides
+
+## Judge-Facing Docs
+
+- Benchmarks: [performance_benchmarks.md](/C:/Users/HP/Desktop/privguard-ai/docs/performance_benchmarks.md)
+- Safety and fairness: [fairness_and_limits.md](/C:/Users/HP/Desktop/privguard-ai/docs/fairness_and_limits.md)
+- Demo script: [demo_script_round1.md](/C:/Users/HP/Desktop/privguard-ai/docs/demo_script_round1.md)
+- Sector impact and integration: [sector_impact_and_integration.md](/C:/Users/HP/Desktop/privguard-ai/docs/sector_impact_and_integration.md)
+- Judging evidence matrix: [judging_evidence_matrix.md](/C:/Users/HP/Desktop/privguard-ai/docs/judging_evidence_matrix.md)
+- Operational KPI model: [operational_kpis.md](/C:/Users/HP/Desktop/privguard-ai/docs/operational_kpis.md)
+- Generated evidence snapshot: [judging_evidence_snapshot.md](/C:/Users/HP/Desktop/privguard-ai/docs/judging_evidence_snapshot.md)
+
+## Run PrivGuard
+
+1. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage Examples
+2. Start the standard app:
 
-### 1) Scan a document (text or image)
-
-```bash
-python main.py scan --input demo_docs/school_admission_sample.txt
+```bat
+start_privguard.bat
 ```
 
-Optional JSON report:
+3. Start a fresh repeatable demo run with a rebuilt 500-file dataset:
 
-```bash
-python main.py scan --input demo_docs/school_admission_sample.txt --json-output outputs/report.json
+```bat
+start_privguard_demo.bat
 ```
 
-Extract OCR text to file:
+4. Open the local dashboard, sign in, unlock the vault once, and either:
+   - click `Use WATCH FOLDER`, or
+   - click `Rebuild Demo` for a clean rerun from the UI.
+
+## Test
 
 ```bash
-python main.py scan --input "path/to/document.png" --extracted-output outputs/extracted.txt --json-output outputs/scan_report.json
+pytest -q tests/test_demo_workflow.py tests/test_folder_watch.py tests/test_folder_watch_reconfigure.py tests/test_workspace_flow.py tests/test_config_and_vault_settings.py
 ```
 
-### 2) Protect a document (one-click actions)
-
-**Redact**
-
-```bash
-python main.py protect --input demo_docs/sme_payroll_sample.txt --action redact --output-dir outputs
-```
-
-**Mask**
-
-```bash
-python main.py protect --input demo_docs/sme_payroll_sample.txt --action mask --output-dir outputs
-```
-
-**Encrypt (reversible)**
-
-```bash
-python main.py protect --input demo_docs/sme_payroll_sample.txt --action encrypt --output-dir outputs
-```
-
-This creates:
-- encrypted file: `outputs/<name>.encrypted.txt`
-- key file: `outputs/<name>.key`
-
-### 3) Decrypt a protected file
-
-```bash
-python main.py decrypt --input outputs/sme_payroll_sample.encrypted.txt --key-path outputs/sme_payroll_sample.key --output-dir outputs
-```
-
-### 4) Verify redaction quality
-
-```bash
-python main.py verify-redaction --original demo_docs/sme_payroll_sample.txt --protected outputs/sme_payroll_sample.redacted.txt --json-output outputs/redaction_quality.json
-```
-
-### 5) Signed audit export
-
-```bash
-python main.py export-audit
-```
-
-### 6) Retention cleanup
-
-```bash
-python main.py retention-cleanup
-```
-
-### 7) Build pilot evidence pack
-
-```bash
-python main.py build-evidence-pack
-```
-
-### 8) OCR diagnostics
-
-```bash
-python main.py ocr-diagnostics
-```
-
-This checks whether any originally detected sensitive values are still present in
-the protected output and returns:
-- `PASS` if no leaks remain
-- `FAIL` with leaked values if any were missed
-
-## Test Cases
-
-Run unit tests:
-
-```bash
-pytest -q tests/test_mvp_detection.py tests/test_mvp_classification.py tests/test_mvp_protection.py
-```
-
-Tests cover:
-- Detection of all required sensitive types
-- Risk level classification behavior
-- Redaction/masking and encryption roundtrip
-
-## KPI Evaluation Toolkit (Sprint 1)
-
-Generate measurable reports for readiness tracking:
-
-```bash
-python evaluation/evaluate_detection.py
-python evaluation/evaluate_redaction.py
-python evaluation/evaluate_ocr.py
-python evaluation/benchmark_perf.py
-```
-
-Generated artifacts:
-- `reports/eval_detection.json`
-- `reports/eval_redaction.json`
-- `reports/eval_ocr.json`
-- `reports/perf_benchmark.json`
-
-## Audit Logging (SQLite)
-
-Every scan/protect/verify operation now logs audit events to:
-
-- `instance/privguard_audit.db`
-
-This supports traceability and accountability evidence for compliance reviews.
-
-## Web Authentication and RBAC (Sprint 2)
-
-The web dashboard now requires login and enforces role-based permissions.
-
-Default demo users:
-
-- `admin` / `Admin@123`
-- `reviewer` / `Reviewer@123`
-
-Admin-only actions:
-- Signed audit export (`/admin/export-audit`)
-- Retention cleanup (`/admin/retention-cleanup`)
-- OCR diagnostics (`/admin/ocr-diagnostics`)
-
-Change credentials in `config/system_config.yaml` before production use.
-
-## Compliance Notes (Kenya DPA 2019)
-
-This MVP supports practical controls aligned with core DPA principles:
-
-- **Data minimization:** flag and reduce unnecessary exposure of personal data.
-- **Purpose limitation:** encourage processing only for legitimate documented use.
-- **Security safeguards:** provide local encryption and controlled output handling.
-- **Accountability support:** produce a clear risk and findings summary for reviews.
-
-> Note: This tool provides technical safeguards and guidance but is not legal advice.
-> Organizations should pair this with internal policies, role-based access, and
-> proper consent/lawful-basis documentation.
-
-## Safety Considerations
-
-- Demo documents use synthetic placeholder values only.
-- Encryption keys are generated securely using `cryptography.fernet`.
-- File input is sanitized and restricted to known text/image formats in the CLI.
-- Avoid storing key files in publicly accessible/shared locations.
-
-## OCR Setup (Offline)
-
-For image text extraction, install Tesseract locally:
-
-- **Windows:** install Tesseract OCR and add it to your system `PATH`
-- **Linux:** `sudo apt install tesseract-ocr`
-- **macOS:** `brew install tesseract`
-
-PRIVGUARD AI uses local OCR only; no image data is sent to external services.
