@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from tkinter import Tk, filedialog
 
-from flask import Flask, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import Flask, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from werkzeug.utils import secure_filename
 
 from automation.demo_workflow import (
@@ -102,6 +102,7 @@ ENTITY_TOTAL_KEYS = (
 )
 AVATAR_DIR = Path("static/uploads/avatars")
 ALLOWED_AVATAR_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+LOGO_DIR = Path("Logo")
 
 def _dashboard_asset_version() -> int:
     asset_paths = (
@@ -896,6 +897,11 @@ def _validate_watch_folder(folder_path: str) -> Path:
     if resolved == vault_root or resolved.is_relative_to(vault_root) or vault_root.is_relative_to(resolved):
         raise ValueError("Watch folder cannot be the vault or contain the vault.")
     return resolved
+
+
+@app.route("/logo/<path:filename>")
+def logo_asset(filename: str):
+    return send_from_directory(LOGO_DIR.resolve(), filename)
 
 
 @app.route("/")

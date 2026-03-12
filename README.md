@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="static/PRIVGUARD%20AI%20OFFICIAL%20LOGO.png" alt="PrivGuard AI Logo" width="720">
-</p>
+![PrivGuard AI Logo](./Logo/PRIVGUARD%20AI%20OFFICIAL%20LOGO.png)
 
 # PrivGuard AI
 
@@ -184,5 +182,7 @@ This is useful when you want to reset the workspace and run PrivGuard AI from a 
 ## Summary
 
 PrivGuard AI is a privacy-focused local security workspace that watches files, detects sensitive data, classifies risk, protects documents, and stores outputs in a secure local vault with audit and lifecycle controls built in.
+
+
 
 
