@@ -244,6 +244,24 @@ def _artifact_filename(document: dict, suffix: str, extension: str) -> str:
     return f"{document['document_id']}__{safe_stem}.{_timestamp_suffix()}.{suffix}.{extension}"
 
 
+def _managed_storage_roots() -> tuple[Path, ...]:
+    roots = [ensure_vault_layout()["root"].resolve()]
+    archive_dir = archive_root().resolve()
+    if archive_dir not in roots:
+        roots.append(archive_dir)
+    return tuple(roots)
+
+
+def _resolve_managed_file(path_value: str | Path, *, must_exist: bool = True) -> Path:
+    """Resolve a stored artifact path and reject anything outside managed storage roots."""
+    candidate = Path(path_value).expanduser().resolve()
+    if must_exist and not candidate.exists():
+        raise FileNotFoundError(f"Managed file is missing: {candidate}")
+    if not any(candidate == root or candidate.is_relative_to(root) for root in _managed_storage_roots()):
+        raise ValueError("Stored file path falls outside PrivGuard managed storage.")
+    return candidate
+
+
 def _system_settings_payload() -> dict:
     config = load_system_config()
     lifecycle = config.get("lifecycle", {})
@@ -349,7 +367,7 @@ def _archive_document_bundle(document: dict) -> dict:
 
     original_path_value = str(document.get("original_path") or "").strip()
     if original_path_value:
-        original_path = Path(original_path_value)
+        original_path = _resolve_managed_file(original_path_value)
         if original_path.exists() and original_path.is_file():
             archived_original = archive_dir / original_path.name
             if original_path.resolve() != archived_original.resolve():
@@ -358,7 +376,7 @@ def _archive_document_bundle(document: dict) -> dict:
                 update_document_fields(document["document_id"], original_path=str(archived_original))
 
     for artifact in document.get("artifact_history", []):
-        artifact_path = Path(str(artifact.get("file_path") or ""))
+        artifact_path = _resolve_managed_file(str(artifact.get("file_path") or ""))
         if artifact_path.exists() and artifact_path.is_file():
             archived_path = archive_dir / artifact_path.name
             if artifact_path.resolve() != archived_path.resolve():
@@ -386,12 +404,12 @@ def _secure_delete_document_bundle(document: dict) -> dict:
     document = _ensure_document_lifecycle(document)
     original_path_value = str(document.get("original_path") or "").strip()
     if original_path_value:
-        original_path = Path(original_path_value)
+        original_path = _resolve_managed_file(original_path_value)
         if original_path.exists() and original_path.is_file():
             original_path.unlink()
 
     for artifact in document.get("artifact_history", []):
-        artifact_path = Path(str(artifact.get("file_path") or ""))
+        artifact_path = _resolve_managed_file(str(artifact.get("file_path") or ""))
         if artifact_path.exists() and artifact_path.is_file():
             artifact_path.unlink()
 
@@ -516,7 +534,7 @@ def _load_document_context(document_id: str) -> tuple[dict, Path, str, dict, dic
     document = get_document(document_id)
     if not document:
         raise FileNotFoundError(f"Document {document_id} was not found.")
-    original_path = Path(str(document["original_path"]))
+    original_path = _resolve_managed_file(str(document["original_path"]))
     if not original_path.exists():
         raise FileNotFoundError(f"Original file for {document_id} is missing from the vault.")
     extracted_text = _read_document_text(original_path)
@@ -1228,9 +1246,11 @@ def download_document_artifact(document_id: str, artifact_type: str):
     artifact = get_latest_artifact(document_id, artifact_type)
     if not artifact:
         return jsonify({"error": "Artifact not found"}), 404
-    artifact_path = Path(str(artifact["file_path"]))
-    vault_root = ensure_vault_layout()["root"].resolve()
-    if not artifact_path.is_file() or not artifact_path.resolve().is_relative_to(vault_root):
+    try:
+        artifact_path = _resolve_managed_file(str(artifact["file_path"]))
+    except (FileNotFoundError, ValueError):
+        return jsonify({"error": "Artifact file not found"}), 404
+    if not artifact_path.is_file():
         return jsonify({"error": "Artifact file not found"}), 404
     return send_file(artifact_path, as_attachment=True, download_name=artifact["filename"])
 
@@ -1244,12 +1264,12 @@ def open_document(document_id: str):
 
     try:
         if artifacts.get("encrypted"):
-            encrypted_path = Path(str(artifacts["encrypted"]["file_path"]))
+            encrypted_path = _resolve_managed_file(str(artifacts["encrypted"]["file_path"]))
             token = encrypted_path.read_text(encoding="utf-8").strip()
             plain_text = _decrypt_text(token, unwrap_document_key(document_id))
             opened_as = "Encrypted"
         elif artifacts.get("redacted"):
-            redacted_path = Path(str(artifacts["redacted"]["file_path"]))
+            redacted_path = _resolve_managed_file(str(artifacts["redacted"]["file_path"]))
             plain_text = redacted_path.read_text(encoding="utf-8")
             opened_as = "Redacted"
         else:

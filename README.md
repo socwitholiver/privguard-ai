@@ -4,6 +4,8 @@
 
 # PrivGuard AI
 
+> Status: On hold. This repository is being preserved in a clean, reviewable state for future continuation.
+
 PrivGuard AI is a local-first cybersecurity workspace for detecting, classifying, and protecting sensitive information before it is exposed.
 
 It is designed to help a user or team drop files into a controlled intake flow, let the system inspect them offline, and then decide whether those files should be redacted, encrypted, stored in the secure vault, or tracked for retention and audit purposes.
